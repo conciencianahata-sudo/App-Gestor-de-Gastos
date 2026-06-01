@@ -10,8 +10,7 @@
     *{box-sizing:border-box;margin:0;padding:0;}
     body{font-family:system-ui,-apple-system,sans-serif;font-size:14px;-webkit-tap-highlight-color:transparent;}
     input,select,button{font-family:inherit;}
-    input[type=number]::-webkit-outer-spin-button,
-    input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0;}
+    input[type=number]::-webkit-outer-spin-button,input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0;}
     input[type=number]{-moz-appearance:textfield;}
     ::-webkit-scrollbar{width:4px;height:4px;}
     ::-webkit-scrollbar-track{background:transparent;}
@@ -21,14 +20,7 @@
 </head>
 <body>
   <div id="root"></div>
-  <script>(function(){
-  window.storage={
-    get:function(k){return new Promise(function(res,rej){try{var v=localStorage.getItem('fin_'+k);if(v===null)rej(new Error('not found'));else res({key:k,value:v});}catch(e){rej(e);}});},
-    set:function(k,v){return new Promise(function(res,rej){try{localStorage.setItem('fin_'+k,v);res({key:k,value:v});}catch(e){rej(e);}});},
-    delete:function(k){return new Promise(function(res){localStorage.removeItem('fin_'+k);res({key:k,deleted:true});});},
-    list:function(p){return new Promise(function(res){var ks=[];for(var i=0;i<localStorage.length;i++){var k=localStorage.key(i);if(k&&k.startsWith('fin_')){var s=k.replace('fin_','');if(!p||s.startsWith(p))ks.push(s);}}res({keys:ks});});}
-  };
-})();</script>
+  <script>(function(){window.storage={get:function(k){return new Promise(function(res,rej){try{var v=localStorage.getItem('fin_'+k);if(v===null)rej(new Error('nf'));else res({key:k,value:v});}catch(e){rej(e);}});},set:function(k,v){return new Promise(function(res,rej){try{localStorage.setItem('fin_'+k,v);res({key:k,value:v});}catch(e){rej(e);}});},delete:function(k){return new Promise(function(res){localStorage.removeItem('fin_'+k);res({key:k,deleted:true});});},list:function(p){return new Promise(function(res){var ks=[];for(var i=0;i<localStorage.length;i++){var k=localStorage.key(i);if(k&&k.startsWith('fin_')){var s=k.replace('fin_','');if(!p||s.startsWith(p))ks.push(s);}}res({keys:ks});});}};})();</script>
   <script>
 const { useState, useEffect, useRef } = React;
 const LIGHT = {
@@ -184,6 +176,12 @@ function cvt(amount, fromId, toId, currencies) {
   const to = currencies.find(c => c.id === toId);
   if (!from || !to) return amount;
   return amount * from.rateToUSD / to.rateToUSD;
+}
+function fmtDate(d) {
+  if (!d) return "";
+  const p = d.split("-");
+  if (p.length !== 3) return d;
+  return `${p[2].slice(0, 2)}/${p[1]}/${p[0].slice(2)}`;
 }
 function fmt(amount, curId, currencies) {
   const cur = currencies.find(c => c.id === curId) || {
@@ -977,7 +975,7 @@ function Registro({
         fontSize: 11,
         color: C.muted
       }
-    }, t.date, " \xB7 ", acc?.name)), /*#__PURE__*/React.createElement("div", {
+    }, fmtDate(t.date), " \xB7 ", acc?.name)), /*#__PURE__*/React.createElement("div", {
       style: {
         fontWeight: 500,
         fontSize: 13,
@@ -1510,7 +1508,7 @@ function Panel({
         fontSize: 10,
         color: C.muted
       }
-    }, t.date)), /*#__PURE__*/React.createElement("div", {
+    }, fmtDate(t.date))), /*#__PURE__*/React.createElement("div", {
       style: {
         fontSize: 13,
         fontWeight: 500,
@@ -1712,21 +1710,42 @@ function Cuentas({
 
   // Touch drag (mobile)
   const touchPos = React.useRef({});
+  const touchTimer = React.useRef(null);
+  const touchActivated = React.useRef(false);
   const onTouchStart = (e, id) => {
-    setTouchDragId(id);
+    touchActivated.current = false;
     touchPos.current = {
       x: e.touches[0].clientX,
-      y: e.touches[0].clientY
+      y: e.touches[0].clientY,
+      id
     };
+    // Start 3-second timer to activate drag
+    touchTimer.current = setTimeout(() => {
+      touchActivated.current = true;
+      setTouchDragId(id);
+      // Vibrate to confirm activation (if supported)
+      if (navigator.vibrate) navigator.vibrate(60);
+    }, 3000);
   };
   const onTouchMove = e => {
-    if (!touchDragId) return;
+    const dx = Math.abs(e.touches[0].clientX - touchPos.current.x);
+    const dy = Math.abs(e.touches[0].clientY - touchPos.current.y);
+    // If user moves more than 8px before timer fires, cancel drag — they're scrolling
+    if (!touchActivated.current) {
+      if (dx > 8 || dy > 8) {
+        clearTimeout(touchTimer.current);
+        return;
+      }
+    }
+    if (!touchActivated.current) return;
+    e.preventDefault(); // prevent scroll only when drag is active
     const el = document.elementFromPoint(e.touches[0].clientX, e.touches[0].clientY);
     const card = el?.closest('[data-accid]');
     if (card) setTouchOverId(card.dataset.accid);
   };
   const onTouchEnd = () => {
-    if (touchDragId && touchOverId && touchDragId !== touchOverId) {
+    clearTimeout(touchTimer.current);
+    if (touchActivated.current && touchDragId && touchOverId && touchDragId !== touchOverId) {
       upd(s => {
         const acts = s.accounts.filter(a => !a.archived).sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
         const fromIdx = acts.findIndex(a => a.id === touchDragId);
@@ -1740,6 +1759,7 @@ function Cuentas({
         });
       });
     }
+    touchActivated.current = false;
     setTouchDragId(null);
     setTouchOverId(null);
   };
@@ -1797,7 +1817,7 @@ function Cuentas({
       color: C.muted,
       textAlign: "center"
     }
-  }, "Mant\xE9n presionado y arrastra para reordenar"), /*#__PURE__*/React.createElement("div", {
+  }, "Mant\xE9n presionado 3 segundos y arrastra para reordenar"), /*#__PURE__*/React.createElement("div", {
     style: {
       display: "grid",
       gridTemplateColumns: "repeat(auto-fill,minmax(260px,1fr))",
@@ -3833,7 +3853,7 @@ function Inversiones({
         fontSize: 11,
         color: C.muted
       }
-    }, t.date, " \xB7 ", acc?.name)), /*#__PURE__*/React.createElement("div", {
+    }, fmtDate(t.date), " \xB7 ", acc?.name)), /*#__PURE__*/React.createElement("div", {
       style: {
         fontWeight: 500,
         fontSize: 13,
