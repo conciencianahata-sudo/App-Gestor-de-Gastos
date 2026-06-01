@@ -277,13 +277,11 @@ function App() {
   });
   const dc = S.currencies.find(c => c.id === S.displayCurrency) || S.currencies[0];
   const accBal = id => {
-    const a = S.accounts.find(x => x.id === id);
-    const init = a?.initialBalance || 0;
     const i = S.transactions.filter(t => t.accountId === id && t.type === "income").reduce((s, t) => s + t.amount, 0);
     const e = S.transactions.filter(t => t.accountId === id && t.type === "expense").reduce((s, t) => s + t.amount, 0);
     const ti = S.transfers.filter(t => t.toId === id).reduce((s, t) => s + t.amount, 0);
     const to = S.transfers.filter(t => t.fromId === id).reduce((s, t) => s + t.amount, 0);
-    return init + i - e + ti - to;
+    return i - e + ti - to;
   };
   const accBalIn = (id, curId) => {
     const a = S.accounts.find(x => x.id === id);
@@ -1532,11 +1530,26 @@ function BalanceCard({
   const saveBal = () => {
     const n = parseFloat(balVal);
     if (isNaN(n)) return;
-    // initialBalance = desired balance - (transactions balance)
-    const txBal = raw - (a.initialBalance || 0);
+    const diff = n - raw; // difference between desired and current balance
+    if (diff === 0) {
+      setEditBal(false);
+      return;
+    }
+    // Create an adjustment transaction (income if positive, expense if negative)
     upd(s => {
-      const x = s.accounts.find(x => x.id === a.id);
-      if (x) x.initialBalance = n - txBal;
+      // Remove old initialBalance if any
+      const acc = s.accounts.find(x => x.id === a.id);
+      if (acc) acc.initialBalance = 0;
+      s.transactions.push({
+        id: uid(),
+        date: today(),
+        type: diff > 0 ? "income" : "expense",
+        accountId: a.id,
+        categoryId: "",
+        subcategoryId: "",
+        amount: Math.abs(diff),
+        note: "Ajuste de saldo"
+      });
     });
     setEditBal(false);
   };
