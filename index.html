@@ -21,45 +21,12 @@
 </head>
 <body>
   <div id="root"></div>
-  <script>
-(function(){
-  window.storage = {
-    get: function(key) {
-      return new Promise(function(resolve, reject) {
-        try {
-          var val = localStorage.getItem('fin_' + key);
-          if (val === null) reject(new Error('Key not found'));
-          else resolve({ key: key, value: val });
-        } catch(e) { reject(e); }
-      });
-    },
-    set: function(key, value) {
-      return new Promise(function(resolve, reject) {
-        try {
-          localStorage.setItem('fin_' + key, value);
-          resolve({ key: key, value: value });
-        } catch(e) { reject(e); }
-      });
-    },
-    delete: function(key) {
-      return new Promise(function(resolve) {
-        localStorage.removeItem('fin_' + key);
-        resolve({ key: key, deleted: true });
-      });
-    },
-    list: function(prefix) {
-      return new Promise(function(resolve) {
-        var keys = [];
-        for (var i = 0; i < localStorage.length; i++) {
-          var k = localStorage.key(i);
-          if (k && k.startsWith('fin_')) {
-            var stripped = k.replace('fin_', '');
-            if (!prefix || stripped.startsWith(prefix)) keys.push(stripped);
-          }
-        }
-        resolve({ keys: keys });
-      });
-    }
+  <script>(function(){
+  window.storage={
+    get:function(k){return new Promise(function(res,rej){try{var v=localStorage.getItem('fin_'+k);if(v===null)rej(new Error('not found'));else res({key:k,value:v});}catch(e){rej(e);}});},
+    set:function(k,v){return new Promise(function(res,rej){try{localStorage.setItem('fin_'+k,v);res({key:k,value:v});}catch(e){rej(e);}});},
+    delete:function(k){return new Promise(function(res){localStorage.removeItem('fin_'+k);res({key:k,deleted:true});});},
+    list:function(p){return new Promise(function(res){var ks=[];for(var i=0;i<localStorage.length;i++){var k=localStorage.key(i);if(k&&k.startsWith('fin_')){var s=k.replace('fin_','');if(!p||s.startsWith(p))ks.push(s);}}res({keys:ks});});}
   };
 })();</script>
   <script>
@@ -1693,6 +1660,11 @@ function Cuentas({
   dc
 }) {
   const [confirmDel, setConfirmDel] = React.useState(null);
+  const [sortBy, setSortBy] = React.useState("manual"); // "manual" | "color"
+  const [dragId, setDragId] = React.useState(null);
+  const [dragOverId, setDragOverId] = React.useState(null);
+  const [touchDragId, setTouchDragId] = React.useState(null);
+  const [touchOverId, setTouchOverId] = React.useState(null);
   const deleteAccount = id => {
     upd(s => {
       s.accounts = s.accounts.filter(a => a.id !== id);
@@ -1700,6 +1672,86 @@ function Cuentas({
       s.transfers = s.transfers.filter(t => t.fromId !== id && t.toId !== id);
     });
     setConfirmDel(null);
+  };
+
+  // Ensure all accounts have an order field
+  const activeAccs = S.accounts.filter(a => !a.archived).map((a, i) => ({
+    ...a,
+    order: a.order ?? i
+  }));
+  const sorted = sortBy === "color" ? [...activeAccs].sort((a, b) => a.color.localeCompare(b.color)) : [...activeAccs].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+
+  // Drag-and-drop reorder (mouse)
+  const onDragStart = id => setDragId(id);
+  const onDragOver = (e, id) => {
+    e.preventDefault();
+    setDragOverId(id);
+  };
+  const onDrop = (e, targetId) => {
+    e.preventDefault();
+    if (!dragId || dragId === targetId) return;
+    upd(s => {
+      const acts = s.accounts.filter(a => !a.archived).sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+      const fromIdx = acts.findIndex(a => a.id === dragId);
+      const toIdx = acts.findIndex(a => a.id === targetId);
+      const reordered = [...acts];
+      const [moved] = reordered.splice(fromIdx, 1);
+      reordered.splice(toIdx, 0, moved);
+      reordered.forEach((a, i) => {
+        const x = s.accounts.find(x => x.id === a.id);
+        if (x) x.order = i;
+      });
+    });
+    setDragId(null);
+    setDragOverId(null);
+  };
+  const onDragEnd = () => {
+    setDragId(null);
+    setDragOverId(null);
+  };
+
+  // Touch drag (mobile)
+  const touchPos = React.useRef({});
+  const onTouchStart = (e, id) => {
+    setTouchDragId(id);
+    touchPos.current = {
+      x: e.touches[0].clientX,
+      y: e.touches[0].clientY
+    };
+  };
+  const onTouchMove = e => {
+    if (!touchDragId) return;
+    const el = document.elementFromPoint(e.touches[0].clientX, e.touches[0].clientY);
+    const card = el?.closest('[data-accid]');
+    if (card) setTouchOverId(card.dataset.accid);
+  };
+  const onTouchEnd = () => {
+    if (touchDragId && touchOverId && touchDragId !== touchOverId) {
+      upd(s => {
+        const acts = s.accounts.filter(a => !a.archived).sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+        const fromIdx = acts.findIndex(a => a.id === touchDragId);
+        const toIdx = acts.findIndex(a => a.id === touchOverId);
+        const reordered = [...acts];
+        const [moved] = reordered.splice(fromIdx, 1);
+        reordered.splice(toIdx, 0, moved);
+        reordered.forEach((a, i) => {
+          const x = s.accounts.find(x => x.id === a.id);
+          if (x) x.order = i;
+        });
+      });
+    }
+    setTouchDragId(null);
+    setTouchOverId(null);
+  };
+  const sortByColor = () => {
+    upd(s => {
+      const acts = [...s.accounts.filter(a => !a.archived)].sort((a, b) => a.color.localeCompare(b.color));
+      acts.forEach((a, i) => {
+        const x = s.accounts.find(x => x.id === a.id);
+        if (x) x.order = i;
+      });
+    });
+    setSortBy("manual");
   };
   return /*#__PURE__*/React.createElement("div", {
     style: {
@@ -1710,7 +1762,23 @@ function Cuentas({
   }, /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
-      justifyContent: "flex-end",
+      justifyContent: "space-between",
+      gap: 8,
+      alignItems: "center",
+      flexWrap: "wrap"
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: sortByColor,
+    style: {
+      ...st.btn,
+      fontSize: 12,
+      display: "flex",
+      alignItems: "center",
+      gap: 5
+    }
+  }, "\uD83C\uDFA8 Ordenar por color"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
       gap: 8
     }
   }, /*#__PURE__*/React.createElement("button", {
@@ -1723,18 +1791,43 @@ function Cuentas({
       type: "newAccount"
     }),
     style: st.btnPri
-  }, "+ Cuenta")), /*#__PURE__*/React.createElement("div", {
+  }, "+ Cuenta"))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11,
+      color: C.muted,
+      textAlign: "center"
+    }
+  }, "Mant\xE9n presionado y arrastra para reordenar"), /*#__PURE__*/React.createElement("div", {
     style: {
       display: "grid",
       gridTemplateColumns: "repeat(auto-fill,minmax(260px,1fr))",
       gap: 10
-    }
-  }, S.accounts.filter(a => !a.archived).map(a => {
+    },
+    onTouchMove: onTouchMove,
+    onTouchEnd: onTouchEnd
+  }, sorted.map(a => {
     const cur = S.currencies.find(c => c.id === a.currencyId) || S.currencies[0];
     const raw = accBal(a.id),
       cv2 = accBalIn(a.id, dc.id);
-    return /*#__PURE__*/React.createElement(BalanceCard, {
+    const isDragging = dragId === a.id || touchDragId === a.id;
+    const isOver = dragOverId === a.id || touchOverId === a.id;
+    return /*#__PURE__*/React.createElement("div", {
       key: a.id,
+      "data-accid": a.id,
+      draggable: true,
+      onDragStart: () => onDragStart(a.id),
+      onDragOver: e => onDragOver(e, a.id),
+      onDrop: e => onDrop(e, a.id),
+      onDragEnd: onDragEnd,
+      onTouchStart: e => onTouchStart(e, a.id),
+      style: {
+        opacity: isDragging ? 0.4 : 1,
+        outline: isOver ? `2px dashed ${C.accent}` : "2px solid transparent",
+        borderRadius: 8,
+        transition: "opacity 0.15s",
+        cursor: "grab"
+      }
+    }, /*#__PURE__*/React.createElement(BalanceCard, {
       a: a,
       cur: cur,
       raw: raw,
@@ -1743,7 +1836,7 @@ function Cuentas({
       S: S,
       upd: upd,
       setModal: setModal
-    });
+    }));
   })), S.accounts.some(a => a.archived) && /*#__PURE__*/React.createElement("div", {
     style: {
       ...st.card,
@@ -4952,7 +5045,7 @@ function CurrencyForm({
     label: "Agregar"
   }));
 }
-const root = ReactDOM.createRoot(document.getElementById('root'));
+const root=ReactDOM.createRoot(document.getElementById('root'));
 root.render(React.createElement(App));
   </script>
 </body>
