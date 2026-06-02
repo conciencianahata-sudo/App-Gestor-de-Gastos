@@ -168,7 +168,9 @@ const INIT = {
   transactions: [],
   budgets: [],
   transfers: [],
-  valuations: []
+  valuations: [],
+  decimals: 2,
+  defaultAccountId: ""
 };
 function cvt(amount, fromId, toId, currencies) {
   if (fromId === toId) return amount;
@@ -183,12 +185,12 @@ function fmtDate(d) {
   if (p.length !== 3) return d;
   return `${p[2].slice(0, 2)}/${p[1]}/${p[0].slice(2)}`;
 }
-function fmt(amount, curId, currencies) {
+function fmt(amount, curId, currencies, decimals) {
   const cur = currencies.find(c => c.id === curId) || {
     symbol: "$",
     type: "fiat"
   };
-  const dec = cur.type === "crypto" ? Math.abs(amount) < 0.01 ? 8 : 4 : 2;
+  const dec = cur.type === "crypto" ? Math.abs(amount) < 0.01 ? 8 : 4 : decimals ?? 2;
   return cur.symbol + Math.abs(amount).toLocaleString("es-MX", {
     minimumFractionDigits: dec,
     maximumFractionDigits: dec
@@ -549,6 +551,7 @@ function App() {
       } catch {}
     },
     S: S,
+    upd: upd,
     resetApp: async () => {
       const f = JSON.parse(JSON.stringify(INIT));
       setS(f);
@@ -745,8 +748,9 @@ function Registro({
 }) {
   const [sub, setSub] = React.useState("expense");
   const [open, setOpen] = React.useState(false);
+  const defaultAccId = S.defaultAccountId || "";
   const [form, setForm] = React.useState({
-    accountId: "",
+    accountId: defaultAccId,
     itemId: "",
     date: today(),
     note: "",
@@ -760,7 +764,7 @@ function Registro({
     setOpen(false);
     setEditId(null);
     setForm({
-      accountId: "",
+      accountId: S.defaultAccountId || "",
       itemId: "",
       date: today(),
       note: "",
@@ -850,7 +854,7 @@ function Registro({
     });
     setConfirmDel(null);
   };
-  const recent = [...S.transactions].filter(t => t.type === sub).sort((a, b) => b.date.localeCompare(a.date)).slice(0, 30);
+  const recent = [...S.transactions].filter(t => t.type === sub && t.note !== "Ajuste de saldo").sort((a, b) => b.date.localeCompare(a.date)).slice(0, 30);
   return /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
@@ -980,7 +984,7 @@ function Registro({
         color: t.type === "income" ? C.green : C.expense,
         flexShrink: 0
       }
-    }, t.type === "income" ? "+" : "-", fmt(t.amount, cur?.id || "BOB", S.currencies)), /*#__PURE__*/React.createElement("button", {
+    }, t.type === "income" ? "+" : "-", fmt(t.amount, cur?.id || "BOB", S.currencies, S.decimals)), /*#__PURE__*/React.createElement("button", {
       onClick: () => {
         setEditId(null);
         setEditForm(null);
@@ -1292,7 +1296,7 @@ function Panel({
       color: tot >= 0 ? C.green : C.red,
       marginBottom: 20
     }
-  }, fmt(tot, dcId, S.currencies)), /*#__PURE__*/React.createElement("div", {
+  }, fmt(tot, dcId, S.currencies, S.decimals)), /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
       gap: 0,
@@ -1333,7 +1337,7 @@ function Panel({
       fontWeight: 500,
       color: k.c
     }
-  }, fmt(k.v, dcId, S.currencies)))))), budgetRows.length > 0 && /*#__PURE__*/React.createElement("div", {
+  }, fmt(k.v, dcId, S.currencies, S.decimals)))))), budgetRows.length > 0 && /*#__PURE__*/React.createElement("div", {
     style: st.card
   }, /*#__PURE__*/React.createElement("div", {
     style: {
@@ -1383,7 +1387,7 @@ function Panel({
       fontSize: 12,
       color: over ? C.red : C.muted
     }
-  }, fmt(spent, bcId, S.currencies), " / ", fmt(b.amount, bcId, S.currencies))), /*#__PURE__*/React.createElement("div", {
+  }, fmt(spent, bcId, S.currencies, S.decimals), " / ", fmt(b.amount, bcId, S.currencies, S.decimals))), /*#__PURE__*/React.createElement("div", {
     style: {
       height: 4,
       borderRadius: 4,
@@ -1403,7 +1407,7 @@ function Panel({
       color: C.red,
       marginTop: 4
     }
-  }, "\u26A0 Superado en ", fmt(spent - b.amount, bcId, S.currencies))))), /*#__PURE__*/React.createElement("div", {
+  }, "\u26A0 Superado en ", fmt(spent - b.amount, bcId, S.currencies, S.decimals))))), /*#__PURE__*/React.createElement("div", {
     style: {
       display: "grid",
       gridTemplateColumns: "repeat(auto-fit,minmax(280px,1fr))",
@@ -1457,12 +1461,12 @@ function Panel({
         fontWeight: 500,
         color: raw >= 0 ? C.green : C.red
       }
-    }, fmt(raw, cur.id, S.currencies)), cur.id !== dcId && /*#__PURE__*/React.createElement("div", {
+    }, fmt(raw, cur.id, S.currencies, S.decimals)), cur.id !== dcId && /*#__PURE__*/React.createElement("div", {
       style: {
         fontSize: 10,
         color: C.muted
       }
-    }, "\u2248", fmt(cv2, dcId, S.currencies))));
+    }, "\u2248", fmt(cv2, dcId, S.currencies, S.decimals))));
   })), /*#__PURE__*/React.createElement("div", {
     style: st.card
   }, /*#__PURE__*/React.createElement("div", {
@@ -1512,7 +1516,7 @@ function Panel({
         fontWeight: 500,
         color: t.type === "income" ? C.green : C.expense
       }
-    }, t.type === "income" ? "+" : "-", fmt(t.amount, cur?.id || "BOB", S.currencies)));
+    }, t.type === "income" ? "+" : "-", fmt(t.amount, cur?.id || "BOB", S.currencies, S.decimals)));
   }))));
 }
 function BalanceCard({
@@ -1629,7 +1633,7 @@ function BalanceCard({
       fontWeight: 300,
       color: raw >= 0 ? C.green : C.expense
     }
-  }, fmt(raw, cur.id, S.currencies)), /*#__PURE__*/React.createElement("button", {
+  }, fmt(raw, cur.id, S.currencies, S.decimals)), /*#__PURE__*/React.createElement("button", {
     onClick: () => {
       setBalVal(String(raw));
       setEditBal(true);
@@ -1648,7 +1652,7 @@ function BalanceCard({
       color: C.muted,
       marginTop: 2
     }
-  }, "\u2248 ", fmt(cv2, dc.id, S.currencies), " ", dc.code), /*#__PURE__*/React.createElement("button", {
+  }, "\u2248 ", fmt(cv2, dc.id, S.currencies, S.decimals), " ", dc.code), /*#__PURE__*/React.createElement("button", {
     onClick: () => upd(s => {
       const x = s.accounts.find(a2 => a2.id === a.id);
       if (x) x.archived = true;
@@ -2612,7 +2616,7 @@ function Presupuesto({
         fontWeight: 500,
         color: C.text
       }
-    }, fmt(b.amount, bcId, S.currencies))), /*#__PURE__*/React.createElement("div", {
+    }, fmt(b.amount, bcId, S.currencies, S.decimals))), /*#__PURE__*/React.createElement("div", {
       style: {
         background: over ? "#fdf2f2" : C.bg,
         borderRadius: 6,
@@ -2633,7 +2637,7 @@ function Presupuesto({
         fontWeight: 500,
         color: over ? C.red : C.text
       }
-    }, fmt(spent, bcId, S.currencies)))), /*#__PURE__*/React.createElement("div", {
+    }, fmt(spent, bcId, S.currencies, S.decimals)))), /*#__PURE__*/React.createElement("div", {
       style: {
         height: 5,
         borderRadius: 5,
@@ -2653,7 +2657,7 @@ function Presupuesto({
         fontSize: 11,
         color: over ? C.red : remaining <= 0.1 * b.amount ? "#c47c1a" : C.muted
       }
-    }, over ? `⚠ Superado en ${fmt(spent - b.amount, bcId, S.currencies)}` : `Disponible: ${fmt(remaining, bcId, S.currencies)}`));
+    }, over ? `⚠ Superado en ${fmt(spent - b.amount, bcId, S.currencies, S.decimals)}` : `Disponible: ${fmt(remaining, bcId, S.currencies, S.decimals)}`));
   }));
 }
 function Reportes({
@@ -2872,7 +2876,7 @@ function CatReport({
     }
   }, /*#__PURE__*/React.createElement("div", {
     style: st.dot(cat.color)
-  }), cat.name), /*#__PURE__*/React.createElement("span", null, fmt(total, dcId, S.currencies), " ", /*#__PURE__*/React.createElement("span", {
+  }), cat.name), /*#__PURE__*/React.createElement("span", null, fmt(total, dcId, S.currencies, S.decimals), " ", /*#__PURE__*/React.createElement("span", {
     style: {
       color: C.muted
     }
@@ -2981,7 +2985,7 @@ function CustomReport({
       fontSize: 16,
       color: k.c
     }
-  }, fmt(k.v, dcId, S.currencies))))), cd.map(({
+  }, fmt(k.v, dcId, S.currencies, S.decimals))))), cd.map(({
     cat,
     total
   }) => /*#__PURE__*/React.createElement("div", {
@@ -3004,7 +3008,7 @@ function CustomReport({
     }
   }, /*#__PURE__*/React.createElement("div", {
     style: st.dot(cat.color)
-  }), cat.name), /*#__PURE__*/React.createElement("span", null, fmt(total, dcId, S.currencies), " ", /*#__PURE__*/React.createElement("span", {
+  }), cat.name), /*#__PURE__*/React.createElement("span", null, fmt(total, dcId, S.currencies, S.decimals), " ", /*#__PURE__*/React.createElement("span", {
     style: {
       color: C.muted
     }
@@ -3132,19 +3136,19 @@ function BarChart({
       fontWeight: 600,
       color: C.green
     }
-  }, fmt(sd.inc, dcId, currencies)), /*#__PURE__*/React.createElement("span", {
+  }, fmt(sd.inc, dcId, currencies, S?.decimals ?? 2)), /*#__PURE__*/React.createElement("span", {
     style: {
       fontSize: 14,
       fontWeight: 600,
       color: C.red
     }
-  }, fmt(sd.exp, dcId, currencies)), /*#__PURE__*/React.createElement("span", {
+  }, fmt(sd.exp, dcId, currencies, S?.decimals ?? 2)), /*#__PURE__*/React.createElement("span", {
     style: {
       fontSize: 14,
       fontWeight: 600,
       color: sd.net >= 0 ? C.blue : C.red
     }
-  }, sd.net >= 0 ? "+" : "", fmt(sd.net, dcId, currencies))), /*#__PURE__*/React.createElement("div", {
+  }, sd.net >= 0 ? "+" : "", fmt(sd.net, dcId, currencies, S?.decimals ?? 2))), /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
       gap: 3,
@@ -3411,17 +3415,17 @@ function CompareChart({
       color: C.green,
       fontWeight: 500
     }
-  }, fmt(sd1.inc, dcId, currencies)), /*#__PURE__*/React.createElement("span", {
+  }, fmt(sd1.inc, dcId, currencies, S?.decimals ?? 2)), /*#__PURE__*/React.createElement("span", {
     style: {
       color: C.red,
       fontWeight: 500
     }
-  }, fmt(sd1.exp, dcId, currencies)), /*#__PURE__*/React.createElement("span", {
+  }, fmt(sd1.exp, dcId, currencies, S?.decimals ?? 2)), /*#__PURE__*/React.createElement("span", {
     style: {
       color: sd1.net >= 0 ? C.blue : C.red,
       fontWeight: 500
     }
-  }, sd1.net >= 0 ? "+" : "", fmt(sd1.net, dcId, currencies)), /*#__PURE__*/React.createElement("span", {
+  }, sd1.net >= 0 ? "+" : "", fmt(sd1.net, dcId, currencies, S?.decimals ?? 2)), /*#__PURE__*/React.createElement("span", {
     style: {
       fontWeight: 600,
       color: "#c47c1a"
@@ -3431,17 +3435,17 @@ function CompareChart({
       color: C.green,
       fontWeight: 500
     }
-  }, fmt(sd2.inc, dcId, currencies)), /*#__PURE__*/React.createElement("span", {
+  }, fmt(sd2.inc, dcId, currencies, S?.decimals ?? 2)), /*#__PURE__*/React.createElement("span", {
     style: {
       color: C.red,
       fontWeight: 500
     }
-  }, fmt(sd2.exp, dcId, currencies)), /*#__PURE__*/React.createElement("span", {
+  }, fmt(sd2.exp, dcId, currencies, S?.decimals ?? 2)), /*#__PURE__*/React.createElement("span", {
     style: {
       color: sd2.net >= 0 ? C.blue : C.red,
       fontWeight: 500
     }
-  }, sd2.net >= 0 ? "+" : "", fmt(sd2.net, dcId, currencies)), (() => {
+  }, sd2.net >= 0 ? "+" : "", fmt(sd2.net, dcId, currencies, S?.decimals ?? 2)), (() => {
     const di = fmtDiff(sd1.inc, sd2.inc);
     const de = fmtDiff(sd1.exp, sd2.exp);
     const dn = fmtDiff(sd1.net, sd2.net);
@@ -3686,7 +3690,7 @@ function Inversiones({
       fontWeight: 300,
       color: k.c
     }
-  }, fmt(k.v, dcId, S.currencies))))), /*#__PURE__*/React.createElement("div", {
+  }, fmt(k.v, dcId, S.currencies, S.decimals))))), /*#__PURE__*/React.createElement("div", {
     style: st.card
   }, /*#__PURE__*/React.createElement("div", {
     style: {
@@ -3726,7 +3730,7 @@ function Inversiones({
         fontSize: 11,
         color: C.muted
       }
-    }, cur.icon, " ", cur.code, " \xB7 Rendimientos: ", fmt(aInc, cur.id, S.currencies))), /*#__PURE__*/React.createElement("div", {
+    }, cur.icon, " ", cur.code, " \xB7 Rendimientos: ", fmt(aInc, cur.id, S.currencies, S.decimals))), /*#__PURE__*/React.createElement("div", {
       style: {
         textAlign: "right"
       }
@@ -3735,12 +3739,12 @@ function Inversiones({
         fontWeight: 500,
         color: raw >= 0 ? C.green : C.red
       }
-    }, fmt(raw, cur.id, S.currencies)), cur.id !== dcId && /*#__PURE__*/React.createElement("div", {
+    }, fmt(raw, cur.id, S.currencies, S.decimals)), cur.id !== dcId && /*#__PURE__*/React.createElement("div", {
       style: {
         fontSize: 11,
         color: C.muted
       }
-    }, "\u2248 ", fmt(cv2, dcId, S.currencies))));
+    }, "\u2248 ", fmt(cv2, dcId, S.currencies, S.decimals))));
   })), /*#__PURE__*/React.createElement("div", {
     style: st.card
   }, /*#__PURE__*/React.createElement("div", {
@@ -3811,7 +3815,7 @@ function Inversiones({
     style: {
       fontWeight: 500
     }
-  }, fmt(e.total, dcId, S.currencies))), /*#__PURE__*/React.createElement("div", {
+  }, fmt(e.total, dcId, S.currencies, S.decimals))), /*#__PURE__*/React.createElement("div", {
     style: {
       height: 3,
       borderRadius: 3,
@@ -3872,7 +3876,7 @@ function Inversiones({
         fontSize: 13,
         color: t.type === "income" ? C.green : C.expense
       }
-    }, t.type === "income" ? "+" : "-", fmt(t.amount, cur?.id || "BOB", S.currencies)));
+    }, t.type === "income" ? "+" : "-", fmt(t.amount, cur?.id || "BOB", S.currencies, S.decimals)));
   })));
 }
 function Divisas({
@@ -4158,6 +4162,7 @@ function Ajustes({
   theme,
   setTheme,
   S,
+  upd,
   resetApp
 }) {
   const [confirmReset, setConfirmReset] = React.useState(false);
@@ -4310,13 +4315,7 @@ function Ajustes({
       color: C.text,
       marginBottom: 8
     }
-  }, "Restaurar desde archivo JSON"), /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontSize: 11,
-      color: C.muted,
-      marginBottom: 12
-    }
-  }, "Sube un backup previo exportado desde esta app o desde la migraci\xF3n."), /*#__PURE__*/React.createElement("input", {
+  }, "Restaurar desde archivo JSON"), /*#__PURE__*/React.createElement("input", {
     ref: importRef,
     type: "file",
     accept: ".json",
@@ -4353,7 +4352,7 @@ function Ajustes({
       padding: "7px 14px",
       fontSize: 13
     }
-  }, "\u2B07 JSON")), row("Todo (transacciones, presupuestos, cuentas)", /*#__PURE__*/React.createElement("button", {
+  }, "\u2B07 JSON")), row("Todo (CSV / Excel)", /*#__PURE__*/React.createElement("button", {
     onClick: exportCSV,
     style: {
       ...st.btnPri,
@@ -4366,20 +4365,172 @@ function Ajustes({
       color: C.green,
       marginTop: 8
     }
-  }, exportMsg), /*#__PURE__*/React.createElement("div", {
+  }, exportMsg)), /*#__PURE__*/React.createElement("div", {
+    style: st.card
+  }, /*#__PURE__*/React.createElement("div", {
     style: {
       fontSize: 11,
       color: C.muted,
-      marginTop: 10
+      textTransform: "uppercase",
+      letterSpacing: "0.05em",
+      marginBottom: 4
     }
-  }, "El CSV incluye todas las hojas y se abre en Excel. El JSON es el backup completo para restaurar.")), /*#__PURE__*/React.createElement("div", {
+  }, "Preferencias"), row("Decimales en cifras", /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 6
+    }
+  }, [0, 1, 2, 3].map(n => /*#__PURE__*/React.createElement("button", {
+    key: n,
+    onClick: () => upd(s => {
+      s.decimals = n;
+    }),
+    style: {
+      ...st.btn,
+      padding: "5px 14px",
+      fontSize: 13,
+      background: (S.decimals ?? 2) === n ? C.accent : C.btnBg,
+      color: (S.decimals ?? 2) === n ? C.bg : C.text,
+      border: `1px solid ${(S.decimals ?? 2) === n ? C.accent : C.border}`
+    }
+  }, n)))), row("Cuenta por defecto", /*#__PURE__*/React.createElement("select", {
+    value: S.defaultAccountId || "",
+    onChange: e => upd(s => {
+      s.defaultAccountId = e.target.value;
+    }),
+    style: {
+      ...st.select,
+      width: 180
+    }
+  }, /*#__PURE__*/React.createElement("option", {
+    value: ""
+  }, "\u2014 Ninguna \u2014"), S.accounts.filter(a => !a.archived).map(a => /*#__PURE__*/React.createElement("option", {
+    key: a.id,
+    value: a.id
+  }, a.icon, " ", a.name))))), /*#__PURE__*/React.createElement("div", {
+    style: st.card
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11,
+      color: C.muted,
+      textTransform: "uppercase",
+      letterSpacing: "0.05em",
+      marginBottom: 12
+    }
+  }, "Ajustes de cuenta"), S.transactions.filter(t => t.note === "Ajuste de saldo").length === 0 ? /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 13,
+      color: C.muted,
+      paddingBottom: 4
+    }
+  }, "Sin ajustes registrados.") : S.transactions.filter(t => t.note === "Ajuste de saldo").sort((a, b) => b.date.localeCompare(a.date)).map(t => {
+    const acc = S.accounts.find(a => a.id === t.accountId);
+    const cur = acc ? S.currencies.find(c => c.id === acc.currencyId) : null;
+    return /*#__PURE__*/React.createElement("div", {
+      key: t.id,
+      style: {
+        display: "flex",
+        alignItems: "center",
+        gap: 10,
+        padding: "9px 0",
+        borderBottom: `1px solid ${C.border}`
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        flex: 1
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 13,
+        color: C.text
+      }
+    }, acc?.name || "—"), /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 11,
+        color: C.muted
+      }
+    }, fmtDate(t.date))), /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontWeight: 500,
+        fontSize: 13,
+        color: t.type === "income" ? C.green : C.expense
+      }
+    }, t.type === "income" ? "+" : "-", fmt(t.amount, cur?.id || "BOB", S.currencies, S.decimals)), /*#__PURE__*/React.createElement("button", {
+      onClick: () => upd(s => {
+        s.transactions = s.transactions.filter(x => x.id !== t.id);
+      }),
+      style: {
+        border: "none",
+        background: "none",
+        cursor: "pointer",
+        fontSize: 13,
+        color: C.red
+      }
+    }, "\uD83D\uDDD1"));
+  })), /*#__PURE__*/React.createElement("div", {
+    style: st.card
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11,
+      color: C.muted,
+      textTransform: "uppercase",
+      letterSpacing: "0.05em",
+      marginBottom: 12
+    }
+  }, "Cuentas archivadas"), S.accounts.filter(a => a.archived).length === 0 ? /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 13,
+      color: C.muted,
+      paddingBottom: 4
+    }
+  }, "No hay cuentas archivadas.") : S.accounts.filter(a => a.archived).map(a => {
+    const cur = S.currencies.find(c => c.id === a.currencyId) || S.currencies[0];
+    return /*#__PURE__*/React.createElement("div", {
+      key: a.id,
+      style: {
+        display: "flex",
+        alignItems: "center",
+        gap: 10,
+        padding: "9px 0",
+        borderBottom: `1px solid ${C.border}`
+      }
+    }, /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 18
+      }
+    }, a.icon), /*#__PURE__*/React.createElement("div", {
+      style: {
+        flex: 1
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 13,
+        color: C.muted
+      }
+    }, a.name), /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 11,
+        color: C.muted
+      }
+    }, cur.code)), /*#__PURE__*/React.createElement("button", {
+      onClick: () => upd(s => {
+        const x = s.accounts.find(x => x.id === a.id);
+        if (x) x.archived = false;
+      }),
+      style: {
+        ...st.btn,
+        fontSize: 12,
+        padding: "5px 14px"
+      }
+    }, "Restaurar"));
+  })), /*#__PURE__*/React.createElement("div", {
     style: {
       textAlign: "center",
       fontSize: 11,
       color: C.muted,
       paddingBottom: 8
     }
-  }, S.transactions.length, " transacciones \xB7 ", S.accounts.length, " cuentas \xB7 ", S.categories.length, " categor\xEDas"));
+  }, S.transactions.filter(t => t.note !== "Ajuste de saldo").length, " transacciones \xB7 ", S.accounts.length, " cuentas \xB7 ", S.categories.length, " categor\xEDas"));
 }
 function ModalWrap({
   modal,
