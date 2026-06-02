@@ -15,7 +15,7 @@
     ::-webkit-scrollbar{width:4px;height:4px;}
     ::-webkit-scrollbar-track{background:transparent;}
     ::-webkit-scrollbar-thumb{background:#ccc;border-radius:4px;}
-    input[type=date]{-webkit-appearance:none;appearance:none;}
+    input[type=date],input[type=month]{-webkit-appearance:none;appearance:none;}
   </style>
 </head>
 <body>
@@ -169,7 +169,6 @@ const INIT = {
   budgets: [],
   transfers: [],
   valuations: [],
-  decimals: 2,
   defaultAccountId: ""
 };
 function cvt(amount, fromId, toId, currencies) {
@@ -185,12 +184,12 @@ function fmtDate(d) {
   if (p.length !== 3) return d;
   return `${p[2].slice(0, 2)}/${p[1]}/${p[0].slice(2)}`;
 }
-function fmt(amount, curId, currencies, decimals) {
+function fmt(amount, curId, currencies) {
   const cur = currencies.find(c => c.id === curId) || {
     symbol: "$",
     type: "fiat"
   };
-  const dec = cur.type === "crypto" ? Math.abs(amount) < 0.01 ? 8 : 4 : decimals ?? 2;
+  const dec = cur.type === "crypto" ? Math.abs(amount) < 0.01 ? 8 : 4 : 2;
   return cur.symbol + Math.abs(amount).toLocaleString("es-MX", {
     minimumFractionDigits: dec,
     maximumFractionDigits: dec
@@ -632,41 +631,100 @@ function TransactionForm({
     }
   })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
     style: st.label
-  }, "Cuenta"), /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: "flex",
-      gap: 8,
-      flexWrap: "wrap"
-    }
-  }, accs.map(a => {
-    const cur = S.currencies.find(c => c.id === a.currencyId);
-    const sel = form.accountId === a.id;
-    return /*#__PURE__*/React.createElement("button", {
-      key: a.id,
-      onClick: () => ff("accountId")(a.id),
+  }, "Cuenta"), (() => {
+    const selAcc = accs.find(a => a.id === form.accountId);
+    const selCur = selAcc ? S.currencies.find(c => c.id === selAcc.currencyId) : null;
+    return /*#__PURE__*/React.createElement("div", {
       style: {
-        border: `1px solid ${sel ? a.color : C.border}`,
-        borderRadius: 20,
-        padding: "5px 12px",
-        fontSize: 12,
-        cursor: "pointer",
-        background: sel ? a.color + "18" : "none",
-        color: sel ? a.color : C.muted,
-        fontWeight: sel ? 500 : 400,
+        position: "relative"
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      onClick: () => ff("_accOpen")(!form._accOpen),
+      style: {
+        ...st.input,
         display: "flex",
         alignItems: "center",
-        gap: 5
+        gap: 8,
+        cursor: "pointer",
+        userSelect: "none"
       }
-    }, /*#__PURE__*/React.createElement("span", {
+    }, selAcc ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("span", {
       style: {
-        width: 6,
-        height: 6,
+        width: 10,
+        height: 10,
         borderRadius: "50%",
-        background: a.color,
-        display: "inline-block"
+        background: selAcc.color,
+        flexShrink: 0
       }
-    }), a.name, " (", cur?.code, ")");
-  }))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+    }), /*#__PURE__*/React.createElement("span", {
+      style: {
+        flex: 1
+      }
+    }, selAcc.name, " (", selCur?.code, ")")) : /*#__PURE__*/React.createElement("span", {
+      style: {
+        color: C.muted,
+        flex: 1
+      }
+    }, "Seleccionar cuenta\u2026"), /*#__PURE__*/React.createElement("span", {
+      style: {
+        color: C.muted,
+        fontSize: 11
+      }
+    }, "\u25BC")), form._accOpen && /*#__PURE__*/React.createElement("div", {
+      style: {
+        position: "absolute",
+        top: "calc(100% + 4px)",
+        left: 0,
+        right: 0,
+        background: C.surface,
+        border: `1px solid ${C.border}`,
+        borderRadius: 8,
+        zIndex: 100,
+        boxShadow: "0 4px 16px rgba(0,0,0,0.12)",
+        overflow: "hidden"
+      }
+    }, accs.map(a => {
+      const cur = S.currencies.find(c => c.id === a.currencyId);
+      const sel = form.accountId === a.id;
+      return /*#__PURE__*/React.createElement("div", {
+        key: a.id,
+        onClick: () => setForm(p => ({
+          ...p,
+          accountId: a.id,
+          _accOpen: false
+        })),
+        style: {
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+          padding: "11px 14px",
+          cursor: "pointer",
+          background: sel ? C.accent + "18" : C.surface,
+          borderBottom: `1px solid ${C.border}`
+        }
+      }, /*#__PURE__*/React.createElement("span", {
+        style: {
+          width: 10,
+          height: 10,
+          borderRadius: "50%",
+          background: a.color,
+          flexShrink: 0
+        }
+      }), /*#__PURE__*/React.createElement("span", {
+        style: {
+          flex: 1,
+          fontSize: 13,
+          color: C.text,
+          fontWeight: sel ? 600 : 400
+        }
+      }, a.name), /*#__PURE__*/React.createElement("span", {
+        style: {
+          fontSize: 11,
+          color: C.muted
+        }
+      }, cur?.code));
+    })));
+  })()), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
     style: st.label
   }, "Categor\xEDa"), allItems.length === 0 ? /*#__PURE__*/React.createElement("div", {
     style: {
@@ -854,7 +912,39 @@ function Registro({
     });
     setConfirmDel(null);
   };
-  const recent = [...S.transactions].filter(t => t.type === sub && t.note !== "Ajuste de saldo").sort((a, b) => b.date.localeCompare(a.date)).slice(0, 30);
+  const [regPeriod, setRegPeriod] = React.useState("all");
+  const [regDate, setRegDate] = React.useState(today());
+  const [regMonth, setRegMonth] = React.useState(today().slice(0, 7));
+  const [regWeek, setRegWeek] = React.useState(today());
+  const getRegRange = () => {
+    if (regPeriod === "day") return {
+      from: regDate,
+      to: regDate
+    };
+    if (regPeriod === "week") {
+      const d = new Date(regWeek + "T12:00:00");
+      const day = d.getDay() || 7;
+      const mon = new Date(d);
+      mon.setDate(d.getDate() - day + 1);
+      const sun = new Date(mon);
+      sun.setDate(mon.getDate() + 6);
+      return {
+        from: mon.toISOString().split("T")[0],
+        to: sun.toISOString().split("T")[0]
+      };
+    }
+    if (regPeriod === "month") return {
+      from: `${regMonth}-01`,
+      to: `${regMonth}-31`
+    };
+    return null;
+  };
+  const regRange = getRegRange();
+  const recent = [...S.transactions].filter(t => {
+    if (t.type !== sub || t.note === "Ajuste de saldo") return false;
+    if (!regRange) return true;
+    return t.date >= regRange.from && t.date <= regRange.to;
+  }).sort((a, b) => b.date.localeCompare(a.date));
   return /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
@@ -927,7 +1017,61 @@ function Registro({
       setEditForm(null);
     },
     saveLabel: "Guardar cambios"
-  }), recent.length > 0 && /*#__PURE__*/React.createElement("div", {
+  }), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      flexDirection: "column",
+      gap: 8
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      background: C.surface,
+      border: `1px solid ${C.border}`,
+      borderRadius: 8,
+      overflow: "hidden"
+    }
+  }, [["all", "Todo"], ["day", "Día"], ["week", "Semana"], ["month", "Mes"]].map(([id, lbl]) => /*#__PURE__*/React.createElement("button", {
+    key: id,
+    onClick: () => setRegPeriod(id),
+    style: {
+      flex: 1,
+      border: "none",
+      padding: "8px 4px",
+      fontSize: 12,
+      cursor: "pointer",
+      background: regPeriod === id ? C.accent : C.btnBg,
+      color: regPeriod === id ? C.bg : C.text,
+      fontWeight: regPeriod === id ? 500 : 400
+    }
+  }, lbl))), regPeriod === "day" && /*#__PURE__*/React.createElement("input", {
+    type: "date",
+    value: regDate,
+    onChange: e => setRegDate(e.target.value),
+    style: {
+      ...st.input,
+      colorScheme: C.bg === "#141414" ? "dark" : "light",
+      color: C.text
+    }
+  }), regPeriod === "week" && /*#__PURE__*/React.createElement("input", {
+    type: "date",
+    value: regWeek,
+    onChange: e => setRegWeek(e.target.value),
+    style: {
+      ...st.input,
+      colorScheme: C.bg === "#141414" ? "dark" : "light",
+      color: C.text
+    }
+  }), regPeriod === "month" && /*#__PURE__*/React.createElement("input", {
+    type: "month",
+    value: regMonth,
+    onChange: e => setRegMonth(e.target.value),
+    style: {
+      ...st.input,
+      colorScheme: C.bg === "#141414" ? "dark" : "light",
+      color: C.text
+    }
+  })), recent.length > 0 && /*#__PURE__*/React.createElement("div", {
     style: st.card
   }, /*#__PURE__*/React.createElement("div", {
     style: {
@@ -937,7 +1081,7 @@ function Registro({
       letterSpacing: "0.05em",
       marginBottom: 14
     }
-  }, sub === "expense" ? "Gastos" : "Ingresos", " \xB7 \xFAltimos ", recent.length), recent.map(t => {
+  }, sub === "expense" ? "Gastos" : "Ingresos", " \xB7 ", recent.length, " registro", recent.length !== 1 ? "s" : ""), recent.map(t => {
     const s2 = S.subcategories?.find(x => x.id === t.subcategoryId);
     const cat = S.categories.find(x => x.id === t.categoryId);
     const acc = S.accounts.find(x => x.id === t.accountId);
@@ -984,7 +1128,7 @@ function Registro({
         color: t.type === "income" ? C.green : C.expense,
         flexShrink: 0
       }
-    }, t.type === "income" ? "+" : "-", fmt(t.amount, cur?.id || "BOB", S.currencies, S.decimals)), /*#__PURE__*/React.createElement("button", {
+    }, t.type === "income" ? "+" : "-", fmt(t.amount, cur?.id || "BOB", S.currencies)), /*#__PURE__*/React.createElement("button", {
       onClick: () => {
         setEditId(null);
         setEditForm(null);
@@ -1070,7 +1214,7 @@ function Panel({
   // Picker state — one value per period type
   const [selDay, setSelDay] = React.useState(today());
   const [selMonth, setSelMonth] = React.useState(today().slice(0, 7));
-  const [selYear, setSelYear] = React.useState(today().slice(0, 4));
+  const [selYear, setSelYear] = React.useState(new Date().getFullYear().toString());
   const [selWeek, setSelWeek] = React.useState(today()); // any date in the week
 
   const getRange = () => {
@@ -1296,7 +1440,7 @@ function Panel({
       color: tot >= 0 ? C.green : C.red,
       marginBottom: 20
     }
-  }, fmt(tot, dcId, S.currencies, S.decimals)), /*#__PURE__*/React.createElement("div", {
+  }, fmt(tot, dcId, S.currencies)), /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
       gap: 0,
@@ -1337,7 +1481,7 @@ function Panel({
       fontWeight: 500,
       color: k.c
     }
-  }, fmt(k.v, dcId, S.currencies, S.decimals)))))), budgetRows.length > 0 && /*#__PURE__*/React.createElement("div", {
+  }, fmt(k.v, dcId, S.currencies)))))), budgetRows.length > 0 && /*#__PURE__*/React.createElement("div", {
     style: st.card
   }, /*#__PURE__*/React.createElement("div", {
     style: {
@@ -1387,7 +1531,7 @@ function Panel({
       fontSize: 12,
       color: over ? C.red : C.muted
     }
-  }, fmt(spent, bcId, S.currencies, S.decimals), " / ", fmt(b.amount, bcId, S.currencies, S.decimals))), /*#__PURE__*/React.createElement("div", {
+  }, fmt(spent, bcId, S.currencies), " / ", fmt(b.amount, bcId, S.currencies))), /*#__PURE__*/React.createElement("div", {
     style: {
       height: 4,
       borderRadius: 4,
@@ -1407,7 +1551,7 @@ function Panel({
       color: C.red,
       marginTop: 4
     }
-  }, "\u26A0 Superado en ", fmt(spent - b.amount, bcId, S.currencies, S.decimals))))), /*#__PURE__*/React.createElement("div", {
+  }, "\u26A0 Superado en ", fmt(spent - b.amount, bcId, S.currencies))))), /*#__PURE__*/React.createElement("div", {
     style: {
       display: "grid",
       gridTemplateColumns: "repeat(auto-fit,minmax(280px,1fr))",
@@ -1461,12 +1605,12 @@ function Panel({
         fontWeight: 500,
         color: raw >= 0 ? C.green : C.red
       }
-    }, fmt(raw, cur.id, S.currencies, S.decimals)), cur.id !== dcId && /*#__PURE__*/React.createElement("div", {
+    }, fmt(raw, cur.id, S.currencies)), cur.id !== dcId && /*#__PURE__*/React.createElement("div", {
       style: {
         fontSize: 10,
         color: C.muted
       }
-    }, "\u2248", fmt(cv2, dcId, S.currencies, S.decimals))));
+    }, "\u2248", fmt(cv2, dcId, S.currencies))));
   })), /*#__PURE__*/React.createElement("div", {
     style: st.card
   }, /*#__PURE__*/React.createElement("div", {
@@ -1516,7 +1660,7 @@ function Panel({
         fontWeight: 500,
         color: t.type === "income" ? C.green : C.expense
       }
-    }, t.type === "income" ? "+" : "-", fmt(t.amount, cur?.id || "BOB", S.currencies, S.decimals)));
+    }, t.type === "income" ? "+" : "-", fmt(t.amount, cur?.id || "BOB", S.currencies)));
   }))));
 }
 function BalanceCard({
@@ -1633,7 +1777,7 @@ function BalanceCard({
       fontWeight: 300,
       color: raw >= 0 ? C.green : C.expense
     }
-  }, fmt(raw, cur.id, S.currencies, S.decimals)), /*#__PURE__*/React.createElement("button", {
+  }, fmt(raw, cur.id, S.currencies)), /*#__PURE__*/React.createElement("button", {
     onClick: () => {
       setBalVal(String(raw));
       setEditBal(true);
@@ -1652,7 +1796,7 @@ function BalanceCard({
       color: C.muted,
       marginTop: 2
     }
-  }, "\u2248 ", fmt(cv2, dc.id, S.currencies, S.decimals), " ", dc.code), /*#__PURE__*/React.createElement("button", {
+  }, "\u2248 ", fmt(cv2, dc.id, S.currencies), " ", dc.code), /*#__PURE__*/React.createElement("button", {
     onClick: () => upd(s => {
       const x = s.accounts.find(a2 => a2.id === a.id);
       if (x) x.archived = true;
@@ -2616,7 +2760,7 @@ function Presupuesto({
         fontWeight: 500,
         color: C.text
       }
-    }, fmt(b.amount, bcId, S.currencies, S.decimals))), /*#__PURE__*/React.createElement("div", {
+    }, fmt(b.amount, bcId, S.currencies))), /*#__PURE__*/React.createElement("div", {
       style: {
         background: over ? "#fdf2f2" : C.bg,
         borderRadius: 6,
@@ -2637,7 +2781,7 @@ function Presupuesto({
         fontWeight: 500,
         color: over ? C.red : C.text
       }
-    }, fmt(spent, bcId, S.currencies, S.decimals)))), /*#__PURE__*/React.createElement("div", {
+    }, fmt(spent, bcId, S.currencies)))), /*#__PURE__*/React.createElement("div", {
       style: {
         height: 5,
         borderRadius: 5,
@@ -2657,7 +2801,7 @@ function Presupuesto({
         fontSize: 11,
         color: over ? C.red : remaining <= 0.1 * b.amount ? "#c47c1a" : C.muted
       }
-    }, over ? `⚠ Superado en ${fmt(spent - b.amount, bcId, S.currencies, S.decimals)}` : `Disponible: ${fmt(remaining, bcId, S.currencies, S.decimals)}`));
+    }, over ? `⚠ Superado en ${fmt(spent - b.amount, bcId, S.currencies)}` : `Disponible: ${fmt(remaining, bcId, S.currencies)}`));
   }));
 }
 function Reportes({
@@ -2667,8 +2811,8 @@ function Reportes({
   const [mode, setMode] = React.useState("monthly");
   const [y1, setY1] = React.useState(new Date().getFullYear().toString());
   const [y2, setY2] = React.useState((new Date().getFullYear() - 1).toString());
-  const [from, setFrom] = React.useState("");
-  const [to, setTo] = React.useState("");
+  const [from, setFrom] = React.useState(`${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-01`);
+  const [to, setTo] = React.useState(today());
   const dcId = dc.id;
   const years = [...new Set(S.transactions.map(t => t.date.slice(0, 4)))].sort().reverse();
   const isExcl = t => S.accounts.find(a => a.id === t.accountId)?.excludeBalance;
@@ -2876,7 +3020,7 @@ function CatReport({
     }
   }, /*#__PURE__*/React.createElement("div", {
     style: st.dot(cat.color)
-  }), cat.name), /*#__PURE__*/React.createElement("span", null, fmt(total, dcId, S.currencies, S.decimals), " ", /*#__PURE__*/React.createElement("span", {
+  }), cat.name), /*#__PURE__*/React.createElement("span", null, fmt(total, dcId, S.currencies), " ", /*#__PURE__*/React.createElement("span", {
     style: {
       color: C.muted
     }
@@ -2916,38 +3060,74 @@ function CustomReport({
   }, /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
+      flexDirection: "column",
       gap: 10,
-      alignItems: "center",
-      marginBottom: 20,
-      flexWrap: "wrap"
+      marginBottom: 20
     }
   }, /*#__PURE__*/React.createElement("span", {
     style: {
-      fontWeight: 500
+      fontWeight: 500,
+      color: C.text
     }
-  }, "Per\xEDodo"), /*#__PURE__*/React.createElement("input", {
+  }, "Per\xEDodo"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 10,
+      alignItems: "center",
+      flexWrap: "wrap"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      flexDirection: "column",
+      gap: 4
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 11,
+      color: C.text,
+      textTransform: "uppercase",
+      letterSpacing: "0.05em"
+    }
+  }, "Desde"), /*#__PURE__*/React.createElement("input", {
     type: "date",
     value: from,
     onChange: e => setFrom(e.target.value),
     style: {
       ...st.input,
-      width: 140,
-      colorScheme: C.bg === "#141414" ? "dark" : "light"
+      width: 150,
+      colorScheme: C.bg === "#141414" ? "dark" : "light",
+      color: C.text
     }
-  }), /*#__PURE__*/React.createElement("span", {
+  })), /*#__PURE__*/React.createElement("span", {
     style: {
-      color: C.muted
+      color: C.muted,
+      marginTop: 18
     }
-  }, "\u2192"), /*#__PURE__*/React.createElement("input", {
+  }, "\u2192"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      flexDirection: "column",
+      gap: 4
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 11,
+      color: C.text,
+      textTransform: "uppercase",
+      letterSpacing: "0.05em"
+    }
+  }, "Hasta"), /*#__PURE__*/React.createElement("input", {
     type: "date",
     value: to,
     onChange: e => setTo(e.target.value),
     style: {
       ...st.input,
-      width: 140,
-      colorScheme: C.bg === "#141414" ? "dark" : "light"
+      width: 150,
+      colorScheme: C.bg === "#141414" ? "dark" : "light",
+      color: C.text
     }
-  })), from && to && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+  })))), from && to && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     style: {
       display: "grid",
       gridTemplateColumns: "repeat(auto-fit,minmax(100px,1fr))",
@@ -2985,7 +3165,7 @@ function CustomReport({
       fontSize: 16,
       color: k.c
     }
-  }, fmt(k.v, dcId, S.currencies, S.decimals))))), cd.map(({
+  }, fmt(k.v, dcId, S.currencies))))), cd.map(({
     cat,
     total
   }) => /*#__PURE__*/React.createElement("div", {
@@ -3008,7 +3188,7 @@ function CustomReport({
     }
   }, /*#__PURE__*/React.createElement("div", {
     style: st.dot(cat.color)
-  }), cat.name), /*#__PURE__*/React.createElement("span", null, fmt(total, dcId, S.currencies, S.decimals), " ", /*#__PURE__*/React.createElement("span", {
+  }), cat.name), /*#__PURE__*/React.createElement("span", null, fmt(total, dcId, S.currencies), " ", /*#__PURE__*/React.createElement("span", {
     style: {
       color: C.muted
     }
@@ -3136,19 +3316,19 @@ function BarChart({
       fontWeight: 600,
       color: C.green
     }
-  }, fmt(sd.inc, dcId, currencies, S?.decimals ?? 2)), /*#__PURE__*/React.createElement("span", {
+  }, fmt(sd.inc, dcId, currencies)), /*#__PURE__*/React.createElement("span", {
     style: {
       fontSize: 14,
       fontWeight: 600,
       color: C.red
     }
-  }, fmt(sd.exp, dcId, currencies, S?.decimals ?? 2)), /*#__PURE__*/React.createElement("span", {
+  }, fmt(sd.exp, dcId, currencies)), /*#__PURE__*/React.createElement("span", {
     style: {
       fontSize: 14,
       fontWeight: 600,
       color: sd.net >= 0 ? C.blue : C.red
     }
-  }, sd.net >= 0 ? "+" : "", fmt(sd.net, dcId, currencies, S?.decimals ?? 2))), /*#__PURE__*/React.createElement("div", {
+  }, sd.net >= 0 ? "+" : "", fmt(sd.net, dcId, currencies))), /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
       gap: 3,
@@ -3415,17 +3595,17 @@ function CompareChart({
       color: C.green,
       fontWeight: 500
     }
-  }, fmt(sd1.inc, dcId, currencies, S?.decimals ?? 2)), /*#__PURE__*/React.createElement("span", {
+  }, fmt(sd1.inc, dcId, currencies)), /*#__PURE__*/React.createElement("span", {
     style: {
       color: C.red,
       fontWeight: 500
     }
-  }, fmt(sd1.exp, dcId, currencies, S?.decimals ?? 2)), /*#__PURE__*/React.createElement("span", {
+  }, fmt(sd1.exp, dcId, currencies)), /*#__PURE__*/React.createElement("span", {
     style: {
       color: sd1.net >= 0 ? C.blue : C.red,
       fontWeight: 500
     }
-  }, sd1.net >= 0 ? "+" : "", fmt(sd1.net, dcId, currencies, S?.decimals ?? 2)), /*#__PURE__*/React.createElement("span", {
+  }, sd1.net >= 0 ? "+" : "", fmt(sd1.net, dcId, currencies)), /*#__PURE__*/React.createElement("span", {
     style: {
       fontWeight: 600,
       color: "#c47c1a"
@@ -3435,17 +3615,17 @@ function CompareChart({
       color: C.green,
       fontWeight: 500
     }
-  }, fmt(sd2.inc, dcId, currencies, S?.decimals ?? 2)), /*#__PURE__*/React.createElement("span", {
+  }, fmt(sd2.inc, dcId, currencies)), /*#__PURE__*/React.createElement("span", {
     style: {
       color: C.red,
       fontWeight: 500
     }
-  }, fmt(sd2.exp, dcId, currencies, S?.decimals ?? 2)), /*#__PURE__*/React.createElement("span", {
+  }, fmt(sd2.exp, dcId, currencies)), /*#__PURE__*/React.createElement("span", {
     style: {
       color: sd2.net >= 0 ? C.blue : C.red,
       fontWeight: 500
     }
-  }, sd2.net >= 0 ? "+" : "", fmt(sd2.net, dcId, currencies, S?.decimals ?? 2)), (() => {
+  }, sd2.net >= 0 ? "+" : "", fmt(sd2.net, dcId, currencies)), (() => {
     const di = fmtDiff(sd1.inc, sd2.inc);
     const de = fmtDiff(sd1.exp, sd2.exp);
     const dn = fmtDiff(sd1.net, sd2.net);
@@ -3577,7 +3757,7 @@ function Inversiones({
   accBalIn
 }) {
   const dcId = dc.id;
-  const invAccs = S.accounts.filter(a => a.excludeBalance && !a.archived);
+  const invAccs = S.accounts.filter(a => a.excludeBalance && a.isInvestment && !a.archived);
   const invTx = S.transactions.filter(t => invAccs.some(a => a.id === t.accountId));
   const cv = t => {
     const a = S.accounts.find(x => x.id === t.accountId);
@@ -3690,7 +3870,7 @@ function Inversiones({
       fontWeight: 300,
       color: k.c
     }
-  }, fmt(k.v, dcId, S.currencies, S.decimals))))), /*#__PURE__*/React.createElement("div", {
+  }, fmt(k.v, dcId, S.currencies))))), /*#__PURE__*/React.createElement("div", {
     style: st.card
   }, /*#__PURE__*/React.createElement("div", {
     style: {
@@ -3730,7 +3910,7 @@ function Inversiones({
         fontSize: 11,
         color: C.muted
       }
-    }, cur.icon, " ", cur.code, " \xB7 Rendimientos: ", fmt(aInc, cur.id, S.currencies, S.decimals))), /*#__PURE__*/React.createElement("div", {
+    }, cur.icon, " ", cur.code, " \xB7 Rendimientos: ", fmt(aInc, cur.id, S.currencies))), /*#__PURE__*/React.createElement("div", {
       style: {
         textAlign: "right"
       }
@@ -3739,12 +3919,12 @@ function Inversiones({
         fontWeight: 500,
         color: raw >= 0 ? C.green : C.red
       }
-    }, fmt(raw, cur.id, S.currencies, S.decimals)), cur.id !== dcId && /*#__PURE__*/React.createElement("div", {
+    }, fmt(raw, cur.id, S.currencies)), cur.id !== dcId && /*#__PURE__*/React.createElement("div", {
       style: {
         fontSize: 11,
         color: C.muted
       }
-    }, "\u2248 ", fmt(cv2, dcId, S.currencies, S.decimals))));
+    }, "\u2248 ", fmt(cv2, dcId, S.currencies))));
   })), /*#__PURE__*/React.createElement("div", {
     style: st.card
   }, /*#__PURE__*/React.createElement("div", {
@@ -3815,7 +3995,7 @@ function Inversiones({
     style: {
       fontWeight: 500
     }
-  }, fmt(e.total, dcId, S.currencies, S.decimals))), /*#__PURE__*/React.createElement("div", {
+  }, fmt(e.total, dcId, S.currencies))), /*#__PURE__*/React.createElement("div", {
     style: {
       height: 3,
       borderRadius: 3,
@@ -3876,7 +4056,7 @@ function Inversiones({
         fontSize: 13,
         color: t.type === "income" ? C.green : C.expense
       }
-    }, t.type === "income" ? "+" : "-", fmt(t.amount, cur?.id || "BOB", S.currencies, S.decimals)));
+    }, t.type === "income" ? "+" : "-", fmt(t.amount, cur?.id || "BOB", S.currencies)));
   })));
 }
 function Divisas({
@@ -4168,6 +4348,8 @@ function Ajustes({
   const [confirmReset, setConfirmReset] = React.useState(false);
   const [exportMsg, setExportMsg] = React.useState("");
   const [importMsg, setImportMsg] = React.useState("");
+  const [openAdj, setOpenAdj] = React.useState(false);
+  const [openArch, setOpenArch] = React.useState(false);
   const importRef = React.useRef();
   const importJSON = async e => {
     const file = e.target.files[0];
@@ -4375,25 +4557,7 @@ function Ajustes({
       letterSpacing: "0.05em",
       marginBottom: 4
     }
-  }, "Preferencias"), row("Decimales en cifras", /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: "flex",
-      gap: 6
-    }
-  }, [0, 1, 2, 3].map(n => /*#__PURE__*/React.createElement("button", {
-    key: n,
-    onClick: () => upd(s => {
-      s.decimals = n;
-    }),
-    style: {
-      ...st.btn,
-      padding: "5px 14px",
-      fontSize: 13,
-      background: (S.decimals ?? 2) === n ? C.accent : C.btnBg,
-      color: (S.decimals ?? 2) === n ? C.bg : C.text,
-      border: `1px solid ${(S.decimals ?? 2) === n ? C.accent : C.border}`
-    }
-  }, n)))), row("Cuenta por defecto", /*#__PURE__*/React.createElement("select", {
+  }, "Preferencias"), row("Cuenta por defecto", /*#__PURE__*/React.createElement("select", {
     value: S.defaultAccountId || "",
     onChange: e => upd(s => {
       s.defaultAccountId = e.target.value;
@@ -4410,14 +4574,30 @@ function Ajustes({
   }, a.icon, " ", a.name))))), /*#__PURE__*/React.createElement("div", {
     style: st.card
   }, /*#__PURE__*/React.createElement("div", {
+    onClick: () => setOpenAdj(o => !o),
+    style: {
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "space-between",
+      cursor: "pointer"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
     style: {
       fontSize: 11,
       color: C.muted,
       textTransform: "uppercase",
-      letterSpacing: "0.05em",
-      marginBottom: 12
+      letterSpacing: "0.05em"
     }
-  }, "Ajustes de cuenta"), S.transactions.filter(t => t.note === "Ajuste de saldo").length === 0 ? /*#__PURE__*/React.createElement("div", {
+  }, "Ajustes de cuenta"), /*#__PURE__*/React.createElement("span", {
+    style: {
+      color: C.muted,
+      fontSize: 12
+    }
+  }, openAdj ? "▲" : "▼")), openAdj && /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 12
+    }
+  }, S.transactions.filter(t => t.note === "Ajuste de saldo").length === 0 ? /*#__PURE__*/React.createElement("div", {
     style: {
       fontSize: 13,
       color: C.muted,
@@ -4455,7 +4635,7 @@ function Ajustes({
         fontSize: 13,
         color: t.type === "income" ? C.green : C.expense
       }
-    }, t.type === "income" ? "+" : "-", fmt(t.amount, cur?.id || "BOB", S.currencies, S.decimals)), /*#__PURE__*/React.createElement("button", {
+    }, t.type === "income" ? "+" : "-", fmt(t.amount, cur?.id || "BOB", S.currencies)), /*#__PURE__*/React.createElement("button", {
       onClick: () => upd(s => {
         s.transactions = s.transactions.filter(x => x.id !== t.id);
       }),
@@ -4467,17 +4647,33 @@ function Ajustes({
         color: C.red
       }
     }, "\uD83D\uDDD1"));
-  })), /*#__PURE__*/React.createElement("div", {
+  }))), /*#__PURE__*/React.createElement("div", {
     style: st.card
+  }, /*#__PURE__*/React.createElement("div", {
+    onClick: () => setOpenArch(o => !o),
+    style: {
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "space-between",
+      cursor: "pointer"
+    }
   }, /*#__PURE__*/React.createElement("div", {
     style: {
       fontSize: 11,
       color: C.muted,
       textTransform: "uppercase",
-      letterSpacing: "0.05em",
-      marginBottom: 12
+      letterSpacing: "0.05em"
     }
-  }, "Cuentas archivadas"), S.accounts.filter(a => a.archived).length === 0 ? /*#__PURE__*/React.createElement("div", {
+  }, "Cuentas archivadas"), /*#__PURE__*/React.createElement("span", {
+    style: {
+      color: C.muted,
+      fontSize: 12
+    }
+  }, openArch ? "▲" : "▼")), openArch && /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 12
+    }
+  }, S.accounts.filter(a => a.archived).length === 0 ? /*#__PURE__*/React.createElement("div", {
     style: {
       fontSize: 13,
       color: C.muted,
@@ -4523,7 +4719,7 @@ function Ajustes({
         padding: "5px 14px"
       }
     }, "Restaurar"));
-  })), /*#__PURE__*/React.createElement("div", {
+  }))), /*#__PURE__*/React.createElement("div", {
     style: {
       textAlign: "center",
       fontSize: 11,
