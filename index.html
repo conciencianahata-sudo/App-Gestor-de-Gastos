@@ -4021,7 +4021,45 @@ function CompareChart({
     }
   }, "Toca un mes para comparar ", y1, " vs ", y2));
 }
-function InvStats({ S, dc, accBal, accBalIn, accs, label, color }) {
+function InvMovRow({ t, S, accs, upd }) {
+  const [confirmDel, setConfirmDel] = React.useState(false);
+  const s2 = S.subcategories?.find(x => x.id === t.subcategoryId);
+  const cat = S.categories.find(c => c.id === t.categoryId);
+  const acc = S.accounts.find(a => a.id === t.accountId);
+  const cur = acc ? S.currencies.find(c => c.id === acc.currencyId) : null;
+  return /*#__PURE__*/React.createElement("div", null,
+    /*#__PURE__*/React.createElement("div", {
+      style: { display: "flex", alignItems: "center", gap: 10, padding: "9px 0", borderBottom: confirmDel ? "none" : `1px solid ${C.border}` }
+    },
+      /*#__PURE__*/React.createElement("span", { style: { fontSize: 15 } }, s2?.icon || cat?.icon || "💰"),
+      /*#__PURE__*/React.createElement("div", { style: { flex: 1, minWidth: 0 } },
+        /*#__PURE__*/React.createElement("div", { style: { fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, t.note || s2?.name || cat?.name || "—"),
+        /*#__PURE__*/React.createElement("div", { style: { fontSize: 11, color: C.muted } }, fmtDate(t.date), accs.length > 1 ? ` · ${acc?.name || ""}` : "")
+      ),
+      /*#__PURE__*/React.createElement("div", { style: { fontWeight: 500, fontSize: 13, color: t.type === "income" ? C.green : C.expense } },
+        t.type === "income" ? "+" : "-", fmt(t.amount, cur?.id || "BOB", S.currencies)
+      ),
+      /*#__PURE__*/React.createElement("button", {
+        onClick: () => setConfirmDel(o => !o),
+        style: { border: "none", background: "none", cursor: "pointer", fontSize: 14, color: C.red, padding: "2px 4px", flexShrink: 0 }
+      }, "\uD83D\uDDD1")
+    ),
+    confirmDel && /*#__PURE__*/React.createElement("div", {
+      style: { display: "flex", alignItems: "center", gap: 8, padding: "8px 0", borderBottom: `1px solid ${C.border}` }
+    },
+      /*#__PURE__*/React.createElement("span", { style: { flex: 1, fontSize: 12, color: C.red } }, "\xBFEliminar este movimiento?"),
+      /*#__PURE__*/React.createElement("button", {
+        onClick: () => { upd(s => { s.transactions = s.transactions.filter(x => x.id !== t.id); }); },
+        style: { border: "none", background: C.red, color: "#fff", borderRadius: 6, padding: "5px 14px", fontSize: 12, cursor: "pointer", fontWeight: 600 }
+      }, "S\xED"),
+      /*#__PURE__*/React.createElement("button", {
+        onClick: () => setConfirmDel(false),
+        style: { border: `1px solid ${C.border}`, background: "none", borderRadius: 6, padding: "5px 14px", fontSize: 12, cursor: "pointer", color: C.text }
+      }, "No")
+    )
+  );
+}
+function InvStats({ S, dc, accBal, accBalIn, accs, label, color, upd }) {
   const dcId = dc.id;
   const cv = t => {
     const a = S.accounts.find(x => x.id === t.accountId);
@@ -4129,22 +4167,7 @@ function InvStats({ S, dc, accBal, accBalIn, accs, label, color }) {
     // Movimientos recientes
     recent.length > 0 && /*#__PURE__*/React.createElement("div", { style: st.card },
       /*#__PURE__*/React.createElement("div", { style: { fontSize: 11, color: C.muted, textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 12 } }, "Movimientos recientes"),
-      recent.map(t => {
-        const s2 = S.subcategories?.find(x => x.id === t.subcategoryId);
-        const cat = S.categories.find(c => c.id === t.categoryId);
-        const acc = S.accounts.find(a => a.id === t.accountId);
-        const cur = acc ? S.currencies.find(c => c.id === acc.currencyId) : null;
-        return /*#__PURE__*/React.createElement("div", { key: t.id, style: { display: "flex", alignItems: "center", gap: 10, padding: "9px 0", borderBottom: `1px solid ${C.border}` } },
-          /*#__PURE__*/React.createElement("span", { style: { fontSize: 15 } }, s2?.icon || cat?.icon || "💰"),
-          /*#__PURE__*/React.createElement("div", { style: { flex: 1, minWidth: 0 } },
-            /*#__PURE__*/React.createElement("div", { style: { fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, t.note || s2?.name || cat?.name || "—"),
-            /*#__PURE__*/React.createElement("div", { style: { fontSize: 11, color: C.muted } }, fmtDate(t.date), accs.length > 1 ? ` · ${acc?.name || ""}` : "")
-          ),
-          /*#__PURE__*/React.createElement("div", { style: { fontWeight: 500, fontSize: 13, color: t.type === "income" ? C.green : C.expense } },
-            t.type === "income" ? "+" : "-", fmt(t.amount, cur?.id || "BOB", S.currencies)
-          )
-        );
-      })
+      recent.map(t => /*#__PURE__*/React.createElement(InvMovRow, { key: t.id, t, S, accs, upd }))
     )
   );
 }
@@ -4313,7 +4336,7 @@ function Inversiones({
     ),
     // Stats + gráfica
     /*#__PURE__*/React.createElement(InvStats, {
-      S, dc, accBal, accBalIn,
+      S, dc, accBal, accBalIn, upd,
       accs: activeAccs,
       label: selAcc ? selAcc.name : "Todas",
       color: selAcc ? selAcc.color : C.blue
