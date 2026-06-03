@@ -280,7 +280,9 @@ function App() {
   const accBal = id => {
     const i = S.transactions.filter(t => t.accountId === id && t.type === "income").reduce((s, t) => s + t.amount, 0);
     const e = S.transactions.filter(t => t.accountId === id && t.type === "expense").reduce((s, t) => s + t.amount, 0);
-    const ti = S.transfers.filter(t => t.toId === id).reduce((s, t) => s + t.amount, 0);
+    // For incoming transfers, use toAmount if available (cross-currency), else amount
+    const ti = S.transfers.filter(t => t.toId === id).reduce((s, t) => s + (t.toAmount ?? t.amount), 0);
+    // For outgoing transfers, deduct the amount in this account's currency
     const to = S.transfers.filter(t => t.fromId === id).reduce((s, t) => s + t.amount, 0);
     return i - e + ti - to;
   };
@@ -315,10 +317,6 @@ function App() {
     label: "Presupuestos",
     icon: "🎯"
   }, {
-    id: "inversiones",
-    label: "Inversiones",
-    icon: "💎"
-  }, {
     id: "ajustes",
     label: "Ajustes",
     icon: "⚙️"
@@ -329,6 +327,9 @@ function App() {
   }, {
     id: "panel",
     label: "Panel"
+  }, {
+    id: "inversiones",
+    label: "Inversiones"
   }, {
     id: "divisas",
     label: "Divisas"
@@ -1796,19 +1797,173 @@ function BalanceCard({
       color: C.muted,
       marginTop: 2
     }
-  }, "\u2248 ", fmt(cv2, dc.id, S.currencies), " ", dc.code), /*#__PURE__*/React.createElement("button", {
-    onClick: () => upd(s => {
-      const x = s.accounts.find(a2 => a2.id === a.id);
-      if (x) x.archived = true;
-    }),
+  }, "\u2248 ", fmt(cv2, dc.id, S.currencies), " ", dc.code));
+}
+function TransferEditForm({
+  tr,
+  S,
+  onChange,
+  onSave,
+  onCancel,
+  onDelete
+}) {
+  const [confirmDel, setConfirmDel] = React.useState(false);
+  const accs = S.accounts.filter(a => !a.archived);
+  const f = k => v => onChange({
+    ...tr,
+    [k]: v
+  });
+  const fromAcc = S.accounts.find(a => a.id === tr.fromId);
+  const toAcc = S.accounts.find(a => a.id === tr.toId);
+  const fromCur = fromAcc ? S.currencies.find(c => c.id === fromAcc.currencyId) : null;
+  const toCur = toAcc ? S.currencies.find(c => c.id === toAcc.currencyId) : null;
+  const enteredAmt = parseFloat(tr.amount) || 0;
+  const needsConversion = fromCur && toCur && fromCur.id !== toCur.id;
+  const amtToCur = needsConversion ? cvt(enteredAmt, fromCur.id, toCur.id, S.currencies) : enteredAmt;
+  const ready = tr.fromId && tr.toId && tr.fromId !== tr.toId && enteredAmt > 0 && tr.date;
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      flexDirection: "column",
+      gap: 10
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "grid",
+      gridTemplateColumns: "1fr 1fr",
+      gap: 8
+    }
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+    style: st.label
+  }, "Desde"), /*#__PURE__*/React.createElement("select", {
+    value: tr.fromId,
+    onChange: e => f("fromId")(e.target.value),
+    style: st.select
+  }, /*#__PURE__*/React.createElement("option", {
+    value: ""
+  }, "\u2014"), accs.map(a => {
+    const c = S.currencies.find(x => x.id === a.currencyId);
+    return /*#__PURE__*/React.createElement("option", {
+      key: a.id,
+      value: a.id
+    }, a.name, " (", c?.code, ")");
+  }))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+    style: st.label
+  }, "Hacia"), /*#__PURE__*/React.createElement("select", {
+    value: tr.toId,
+    onChange: e => f("toId")(e.target.value),
+    style: st.select
+  }, /*#__PURE__*/React.createElement("option", {
+    value: ""
+  }, "\u2014"), accs.map(a => {
+    const c = S.currencies.find(x => x.id === a.currencyId);
+    return /*#__PURE__*/React.createElement("option", {
+      key: a.id,
+      value: a.id
+    }, a.name, " (", c?.code, ")");
+  })))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "grid",
+      gridTemplateColumns: "1fr 1fr",
+      gap: 8
+    }
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+    style: st.label
+  }, "Monto"), /*#__PURE__*/React.createElement("input", {
+    type: "number",
+    value: tr.amount,
+    onChange: e => f("amount")(e.target.value),
+    style: st.input,
+    step: "any"
+  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+    style: st.label
+  }, "Fecha"), /*#__PURE__*/React.createElement("input", {
+    type: "date",
+    value: tr.date,
+    onChange: e => f("date")(e.target.value),
+    style: {
+      ...st.input,
+      colorScheme: C.bg === "#141414" ? "dark" : "light"
+    }
+  }))), enteredAmt > 0 && needsConversion && /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 12,
+      color: C.green,
+      padding: "8px 10px",
+      background: C.green + "12",
+      borderRadius: 6,
+      border: `1px solid ${C.green}33`
+    }
+  }, "\u21AA ", fmt(enteredAmt, fromCur.id, S.currencies), " ", fromCur.code, " \u2192 ", fmt(amtToCur, toCur.id, S.currencies), " ", toCur.code, " (en ", toAcc?.name || "destino", ")"), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+    style: st.label
+  }, "Nota"), /*#__PURE__*/React.createElement("input", {
+    value: tr.note || "",
+    onChange: e => f("note")(e.target.value),
+    placeholder: "Opcional",
+    style: st.input
+  })), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 8
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: onCancel,
     style: {
       ...st.btn,
-      marginTop: 12,
-      fontSize: 12,
-      padding: "4px 10px",
-      color: C.muted
+      flex: 1
     }
-  }, "Archivar"));
+  }, "Cancelar"), /*#__PURE__*/React.createElement("button", {
+    onClick: onSave,
+    disabled: !ready,
+    style: {
+      ...st.btnPri,
+      flex: 1,
+      opacity: ready ? 1 : 0.4
+    }
+  }, "Guardar")), confirmDel ? /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 8,
+      padding: "10px",
+      background: "#fdf2f2",
+      borderRadius: 8,
+      alignItems: "center"
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      flex: 1,
+      fontSize: 12,
+      color: C.red
+    }
+  }, "\xBFEliminar esta transferencia?"), /*#__PURE__*/React.createElement("button", {
+    onClick: onDelete,
+    style: {
+      border: "none",
+      background: C.red,
+      color: "#fff",
+      borderRadius: 6,
+      padding: "5px 14px",
+      fontSize: 12,
+      cursor: "pointer",
+      fontWeight: 600
+    }
+  }, "S\xED"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setConfirmDel(false),
+    style: {
+      ...st.btn,
+      fontSize: 12,
+      padding: "5px 14px"
+    }
+  }, "No")) : /*#__PURE__*/React.createElement("button", {
+    onClick: () => setConfirmDel(true),
+    style: {
+      ...st.btn,
+      color: C.red,
+      borderColor: C.red,
+      fontSize: 12,
+      width: "100%"
+    }
+  }, "\uD83D\uDDD1 Eliminar transferencia"));
 }
 function Cuentas({
   S,
@@ -1819,6 +1974,8 @@ function Cuentas({
   dc
 }) {
   const [confirmDel, setConfirmDel] = React.useState(null);
+  const [showTransfers, setShowTransfers] = React.useState(false);
+  const [editTransfer, setEditTransfer] = React.useState(null);
   const [sortBy, setSortBy] = React.useState("manual"); // "manual" | "color"
   const [dragId, setDragId] = React.useState(null);
   const [dragOverId, setDragOverId] = React.useState(null);
@@ -1834,7 +1991,7 @@ function Cuentas({
   };
 
   // Ensure all accounts have an order field
-  const activeAccs = S.accounts.filter(a => !a.archived).map((a, i) => ({
+  const activeAccs = S.accounts.filter(a => !a.archived && !a.isInvestment).map((a, i) => ({
     ...a,
     order: a.order ?? i
   }));
@@ -1850,7 +2007,7 @@ function Cuentas({
     e.preventDefault();
     if (!dragId || dragId === targetId) return;
     upd(s => {
-      const acts = s.accounts.filter(a => !a.archived).sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+      const acts = s.accounts.filter(a => !a.archived && !a.isInvestment).sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
       const fromIdx = acts.findIndex(a => a.id === dragId);
       const toIdx = acts.findIndex(a => a.id === targetId);
       const reordered = [...acts];
@@ -1908,7 +2065,7 @@ function Cuentas({
     clearTimeout(touchTimer.current);
     if (touchActivated.current && touchDragId && touchOverId && touchDragId !== touchOverId) {
       upd(s => {
-        const acts = s.accounts.filter(a => !a.archived).sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+        const acts = s.accounts.filter(a => !a.archived && !a.isInvestment).sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
         const fromIdx = acts.findIndex(a => a.id === touchDragId);
         const toIdx = acts.findIndex(a => a.id === touchOverId);
         const reordered = [...acts];
@@ -1926,7 +2083,7 @@ function Cuentas({
   };
   const sortByColor = () => {
     upd(s => {
-      const acts = [...s.accounts.filter(a => !a.archived)].sort((a, b) => a.color.localeCompare(b.color));
+      const acts = [...s.accounts.filter(a => !a.archived && !a.isInvestment)].sort((a, b) => a.color.localeCompare(b.color));
       acts.forEach((a, i) => {
         const x = s.accounts.find(x => x.id === a.id);
         if (x) x.order = i;
@@ -1963,6 +2120,13 @@ function Cuentas({
       gap: 8
     }
   }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => setShowTransfers(o => !o),
+    style: {
+      ...st.btn,
+      background: showTransfers ? C.accent : "none",
+      color: showTransfers ? C.bg : C.text
+    }
+  }, "\uD83D\uDCCB Historial"), /*#__PURE__*/React.createElement("button", {
     onClick: () => setModal({
       type: "newTransfer"
     }),
@@ -2018,91 +2182,126 @@ function Cuentas({
       upd: upd,
       setModal: setModal
     }));
-  })), S.accounts.some(a => a.archived) && /*#__PURE__*/React.createElement("div", {
-    style: {
-      ...st.card,
-      background: C.bg
-    }
+  })), showTransfers && /*#__PURE__*/React.createElement("div", {
+    style: st.card
   }, /*#__PURE__*/React.createElement("div", {
     style: {
       fontSize: 11,
       color: C.muted,
       textTransform: "uppercase",
       letterSpacing: "0.04em",
-      marginBottom: 10
+      marginBottom: 14
     }
-  }, "Archivadas"), S.accounts.filter(a => a.archived).map(a => /*#__PURE__*/React.createElement("div", {
-    key: a.id,
+  }, "Historial de transferencias"), S.transfers.length === 0 ? /*#__PURE__*/React.createElement("div", {
     style: {
-      display: "flex",
-      alignItems: "center",
-      gap: 10,
-      padding: "8px 0",
-      borderBottom: "1px solid #e8e6e1"
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: st.dot(a.color)
-  }), /*#__PURE__*/React.createElement("span", {
-    style: {
-      flex: 1,
+      fontSize: 13,
       color: C.muted
     }
-  }, a.name), /*#__PURE__*/React.createElement("button", {
-    onClick: () => upd(s => {
-      const x = s.accounts.find(a2 => a2.id === a.id);
-      if (x) x.archived = false;
-    }),
-    style: {
-      ...st.btn,
-      fontSize: 12
-    }
-  }, "Restaurar"), confirmDel === a.id ? /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: "flex",
-      alignItems: "center",
-      gap: 6,
-      background: "#fdf2f2",
-      border: "1px solid #f0c4be",
-      borderRadius: 6,
-      padding: "3px 8px"
-    }
-  }, /*#__PURE__*/React.createElement("span", {
-    style: {
-      fontSize: 11,
-      color: C.red
-    }
-  }, "\xBFEliminar?"), /*#__PURE__*/React.createElement("button", {
-    onClick: () => deleteAccount(a.id),
-    style: {
-      border: "none",
-      background: C.red,
-      color: "#fff",
-      borderRadius: 4,
-      padding: "2px 8px",
-      fontSize: 11,
-      cursor: "pointer",
-      fontWeight: 500
-    }
-  }, "S\xED"), /*#__PURE__*/React.createElement("button", {
-    onClick: () => setConfirmDel(null),
-    style: {
-      border: "1px solid #e8e6e1",
-      background: "none",
-      borderRadius: 4,
-      padding: "2px 8px",
-      fontSize: 11,
-      cursor: "pointer"
-    }
-  }, "No")) : /*#__PURE__*/React.createElement("button", {
-    onClick: () => setConfirmDel(a.id),
-    style: {
-      border: "none",
-      background: "none",
-      cursor: "pointer",
-      fontSize: 13,
-      color: C.red
-    }
-  }, "\uD83D\uDDD1")))));
+  }, "Sin transferencias registradas.") : [...S.transfers].sort((a, b) => b.date.localeCompare(a.date)).map(tr => {
+    const fromAcc = S.accounts.find(a => a.id === tr.fromId);
+    const toAcc = S.accounts.find(a => a.id === tr.toId);
+    const cur = fromAcc ? S.currencies.find(c => c.id === fromAcc.currencyId) : null;
+    const isEdit = editTransfer?.id === tr.id;
+    return /*#__PURE__*/React.createElement("div", {
+      key: tr.id
+    }, isEdit ? /*#__PURE__*/React.createElement("div", {
+      style: {
+        padding: "12px 0",
+        borderBottom: `1px solid ${C.border}`
+      }
+    }, /*#__PURE__*/React.createElement(TransferEditForm, {
+      tr: editTransfer,
+      S: S,
+      onChange: v => setEditTransfer(v),
+      onSave: () => {
+        upd(s => {
+          const x = s.transfers.find(x => x.id === tr.id);
+          const fAcc = s.accounts.find(a => a.id === editTransfer.fromId);
+          const tAcc = s.accounts.find(a => a.id === editTransfer.toId);
+          const fCur = fAcc ? s.currencies.find(c => c.id === fAcc.currencyId) : null;
+          const tCur = tAcc ? s.currencies.find(c => c.id === tAcc.currencyId) : null;
+          const parsedAmt = parseFloat(editTransfer.amount);
+          const calcToAmount = fCur && tCur && fCur.id !== tCur.id
+            ? cvt(parsedAmt, fCur.id, tCur.id, s.currencies)
+            : parsedAmt;
+          if (x) Object.assign(x, {
+            fromId: editTransfer.fromId,
+            toId: editTransfer.toId,
+            amount: parsedAmt,
+            toAmount: calcToAmount,
+            date: editTransfer.date,
+            note: editTransfer.note
+          });
+        });
+        setEditTransfer(null);
+      },
+      onCancel: () => setEditTransfer(null),
+      onDelete: () => {
+        upd(s => {
+          s.transfers = s.transfers.filter(x => x.id !== tr.id);
+        });
+        setEditTransfer(null);
+      }
+    })) : /*#__PURE__*/React.createElement("div", {
+      onClick: () => setEditTransfer({
+        ...tr,
+        amount: String(tr.amount)
+      }),
+      style: {
+        display: "flex",
+        alignItems: "center",
+        gap: 10,
+        padding: "11px 0",
+        borderBottom: `1px solid ${C.border}`,
+        cursor: "pointer"
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        flex: 1,
+        minWidth: 0
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 13,
+        color: C.text,
+        display: "flex",
+        alignItems: "center",
+        gap: 6,
+        flexWrap: "wrap"
+      }
+    }, /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontWeight: 500
+      }
+    }, fromAcc?.name || "—"), /*#__PURE__*/React.createElement("span", {
+      style: {
+        color: C.muted,
+        fontSize: 12
+      }
+    }, "\u2192"), /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontWeight: 500
+      }
+    }, toAcc?.name || "—")), /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 11,
+        color: C.muted,
+        marginTop: 2
+      }
+    }, fmtDate(tr.date), tr.note ? ` · ${tr.note}` : "")), /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontWeight: 500,
+        fontSize: 14,
+        color: C.blue,
+        flexShrink: 0
+      }
+    }, fmt(tr.amount, cur?.id || "BOB", S.currencies)), /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 11,
+        color: C.muted
+      }
+    }, "\u270F\uFE0E")));
+  })));
 }
 function IcoPicker({
   icon,
@@ -3750,314 +3949,304 @@ function CompareChart({
     }
   }, "Toca un mes para comparar ", y1, " vs ", y2));
 }
-function Inversiones({
-  S,
-  dc,
-  accBal,
-  accBalIn
-}) {
+function InvStats({ S, dc, accBal, accBalIn, accs, label, color }) {
   const dcId = dc.id;
-  const invAccs = S.accounts.filter(a => a.excludeBalance && a.isInvestment && !a.archived);
-  const invTx = S.transactions.filter(t => invAccs.some(a => a.id === t.accountId));
   const cv = t => {
     const a = S.accounts.find(x => x.id === t.accountId);
     return a ? cvt(t.amount, a.currencyId, dcId, S.currencies) : t.amount;
   };
-  const totInv = invAccs.reduce((s, a) => s + accBalIn(a.id, dcId), 0);
-  const totInc = invTx.filter(t => t.type === "income").reduce((s, t) => s + cv(t), 0);
-  const totExp = invTx.filter(t => t.type === "expense").reduce((s, t) => s + cv(t), 0);
+  const txs = S.transactions.filter(t => accs.some(a => a.id === t.accountId));
+  const totVal = accs.reduce((s, a) => s + accBalIn(a.id, dcId), 0);
+  // Rendimiento = ingresos - egresos de transacciones de inversión
+  const totInc = txs.filter(t => t.type === "income").reduce((s, t) => s + cv(t), 0);
+  const totExp = txs.filter(t => t.type === "expense").reduce((s, t) => s + cv(t), 0);
   const netR = totInc - totExp;
-  const bySub = {};
-  invTx.filter(t => t.type === "income").forEach(t => {
-    const k = t.subcategoryId || t.categoryId || "x";
-    bySub[k] = (bySub[k] || 0) + cv(t);
-  });
-  const subE = Object.entries(bySub).map(([k, v]) => {
-    const s = S.subcategories?.find(x => x.id === k);
-    const c = S.categories.find(x => x.id === k) || S.categories.find(x => x.id === s?.catId);
-    return {
-      label: s?.name || c?.name || "Otro",
-      icon: s?.icon || c?.icon || "💰",
-      color: s?.color || c?.color || C.muted,
-      total: v
-    };
-  }).sort((a, b) => b.total - a.total);
-  const maxSub = Math.max(...subE.map(e => e.total), 1);
+  // Capital invertido = suma de transferencias entrantes convertidas a dcId
+  const capitalInv = accs.reduce((s, a) => {
+    return s + S.transfers.filter(t => t.toId === a.id).reduce((ss, tr) => {
+      const fromAcc = S.accounts.find(x => x.id === tr.fromId);
+      const amt = tr.toAmount ?? tr.amount;
+      const curId = a.currencyId;
+      return ss + cvt(amt, curId, dcId, S.currencies);
+    }, 0);
+  }, 0);
+  const rendPct = capitalInv > 0 ? (netR / capitalInv * 100) : null;
+  // Gráfica: rendimientos mensuales últimos 12 meses
   const now = new Date();
-  const months = Array.from({
-    length: 12
-  }, (_, i) => {
+  const months = Array.from({ length: 12 }, (_, i) => {
     const d = new Date(now.getFullYear(), now.getMonth() - 11 + i, 1);
     const mk = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-    const lbl = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"][d.getMonth()];
-    const inc = invTx.filter(t => t.date.startsWith(mk) && t.type === "income").reduce((s, t) => s + cv(t), 0);
-    return {
-      lbl,
-      inc
-    };
+    const lbl = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"][d.getMonth()];
+    const inc = txs.filter(t => t.date.startsWith(mk) && t.type === "income").reduce((s, t) => s + cv(t), 0);
+    const exp = txs.filter(t => t.date.startsWith(mk) && t.type === "expense").reduce((s, t) => s + cv(t), 0);
+    return { lbl, inc, exp, net: inc - exp };
   });
-  const maxM = Math.max(...months.map(m => m.inc), 1);
-  const recent = [...invTx].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 6);
+  const maxM = Math.max(...months.map(m => Math.max(m.inc, m.exp, Math.abs(m.net))), 1);
+  const [selM, setSelM] = React.useState(null);
+  const recent = [...txs].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5);
+  return /*#__PURE__*/React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 14 } },
+    // Stats cards
+    /*#__PURE__*/React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(130px,1fr))", gap: 10 } },
+      [
+        { l: "Valor en cartera", v: totVal, c: color || C.blue, cur: dcId },
+        { l: "Rendimiento neto", v: netR, c: netR >= 0 ? C.green : C.red, cur: dcId },
+        { l: "Capital invertido", v: capitalInv, c: C.muted, cur: dcId },
+        rendPct !== null && { l: "Retorno %", v: rendPct, c: netR >= 0 ? C.green : C.red, isPct: true }
+      ].filter(Boolean).map(k => /*#__PURE__*/React.createElement("div", {
+        key: k.l,
+        style: { ...st.card, borderTop: `3px solid ${k.c}`, padding: "14px 16px" }
+      },
+        /*#__PURE__*/React.createElement("div", { style: { fontSize: 10, color: C.muted, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.04em" } }, k.l),
+        /*#__PURE__*/React.createElement("div", { style: { fontSize: 18, fontWeight: 300, color: k.c } },
+          k.isPct
+            ? `${netR >= 0 ? "+" : ""}${k.v.toFixed(2)}%`
+            : `${k.v >= 0 ? "" : "-"}${fmt(Math.abs(k.v), dcId, S.currencies)}`
+        )
+      ))
+    ),
+    // Gráfica mensual
+    /*#__PURE__*/React.createElement("div", { style: st.card },
+      /*#__PURE__*/React.createElement("div", { style: { fontSize: 11, color: C.muted, textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 4 } },
+        "Rendimientos \u2014 últimos 12 meses"
+      ),
+      /*#__PURE__*/React.createElement("div", { style: { display: "flex", gap: 12, marginBottom: 12, fontSize: 11, color: C.muted, flexWrap: "wrap" } },
+        /*#__PURE__*/React.createElement("span", { style: { display: "flex", alignItems: "center", gap: 4 } },
+          /*#__PURE__*/React.createElement("span", { style: { width: 8, height: 8, borderRadius: 2, background: C.green, display: "inline-block" } }), " Ingresos"
+        ),
+        /*#__PURE__*/React.createElement("span", { style: { display: "flex", alignItems: "center", gap: 4 } },
+          /*#__PURE__*/React.createElement("span", { style: { width: 8, height: 8, borderRadius: 2, background: C.red, display: "inline-block" } }), " Egresos"
+        ),
+        selM !== null && /*#__PURE__*/React.createElement("span", { style: { marginLeft: "auto", cursor: "pointer", color: C.muted }, onClick: () => setSelM(null) }, "\u2715 cerrar")
+      ),
+      selM !== null && /*#__PURE__*/React.createElement("div", {
+        style: { marginBottom: 12, padding: "10px 14px", background: C.bg, borderRadius: 8, border: `1px solid ${C.border}`, display: "grid", gridTemplateColumns: "auto 1fr 1fr 1fr", gap: "4px 14px", fontSize: 12, alignItems: "center" }
+      },
+        /*#__PURE__*/React.createElement("span", { style: { fontWeight: 600, fontSize: 13, gridRow: "1/3", color: color || C.blue } }, months[selM].lbl),
+        /*#__PURE__*/React.createElement("span", { style: { color: C.muted, fontSize: 10 } }, "Ingresos"),
+        /*#__PURE__*/React.createElement("span", { style: { color: C.muted, fontSize: 10 } }, "Egresos"),
+        /*#__PURE__*/React.createElement("span", { style: { color: C.muted, fontSize: 10 } }, "Neto"),
+        /*#__PURE__*/React.createElement("span", { style: { color: C.green, fontWeight: 500 } }, fmt(months[selM].inc, dcId, S.currencies)),
+        /*#__PURE__*/React.createElement("span", { style: { color: C.red, fontWeight: 500 } }, fmt(months[selM].exp, dcId, S.currencies)),
+        /*#__PURE__*/React.createElement("span", { style: { color: months[selM].net >= 0 ? C.green : C.red, fontWeight: 600 } },
+          months[selM].net >= 0 ? "+" : "", fmt(Math.abs(months[selM].net), dcId, S.currencies)
+        )
+      ),
+      months.every(m => m.inc === 0 && m.exp === 0)
+        ? /*#__PURE__*/React.createElement("div", { style: { fontSize: 13, color: C.muted } }, "Sin movimientos aún.")
+        : /*#__PURE__*/React.createElement("div", { style: { display: "flex", gap: 3, alignItems: "flex-end", height: 100 } },
+            months.map((m, i) => {
+              const isSel = selM === i;
+              return /*#__PURE__*/React.createElement("div", {
+                key: m.lbl,
+                onClick: () => setSelM(s => s === i ? null : i),
+                style: { flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 2, cursor: "pointer" }
+              },
+                /*#__PURE__*/React.createElement("div", {
+                  style: { width: "100%", display: "flex", gap: 1, alignItems: "flex-end", height: 80,
+                    outline: isSel ? `2px solid ${color || C.accent}` : "2px solid transparent", outlineOffset: 2, borderRadius: 3, transition: "outline 0.1s" }
+                },
+                  /*#__PURE__*/React.createElement("div", { style: { flex: 1, background: C.green, borderRadius: "2px 2px 0 0", height: `${m.inc / maxM * 100}%`, minHeight: m.inc > 0 ? 2 : 0, opacity: isSel ? 1 : 0.8 } }),
+                  /*#__PURE__*/React.createElement("div", { style: { flex: 1, background: C.red, borderRadius: "2px 2px 0 0", height: `${m.exp / maxM * 100}%`, minHeight: m.exp > 0 ? 2 : 0, opacity: isSel ? 1 : 0.8 } })
+                ),
+                /*#__PURE__*/React.createElement("div", { style: { fontSize: 9, color: isSel ? C.text : C.muted, fontWeight: isSel ? 700 : 400 } }, m.lbl)
+              );
+            })
+          ),
+      selM === null && /*#__PURE__*/React.createElement("div", { style: { marginTop: 6, fontSize: 11, color: C.muted, textAlign: "center" } }, "Toca un mes para ver el detalle")
+    ),
+    // Movimientos recientes
+    recent.length > 0 && /*#__PURE__*/React.createElement("div", { style: st.card },
+      /*#__PURE__*/React.createElement("div", { style: { fontSize: 11, color: C.muted, textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 12 } }, "Movimientos recientes"),
+      recent.map(t => {
+        const s2 = S.subcategories?.find(x => x.id === t.subcategoryId);
+        const cat = S.categories.find(c => c.id === t.categoryId);
+        const acc = S.accounts.find(a => a.id === t.accountId);
+        const cur = acc ? S.currencies.find(c => c.id === acc.currencyId) : null;
+        return /*#__PURE__*/React.createElement("div", { key: t.id, style: { display: "flex", alignItems: "center", gap: 10, padding: "9px 0", borderBottom: `1px solid ${C.border}` } },
+          /*#__PURE__*/React.createElement("span", { style: { fontSize: 15 } }, s2?.icon || cat?.icon || "💰"),
+          /*#__PURE__*/React.createElement("div", { style: { flex: 1, minWidth: 0 } },
+            /*#__PURE__*/React.createElement("div", { style: { fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, t.note || s2?.name || cat?.name || "—"),
+            /*#__PURE__*/React.createElement("div", { style: { fontSize: 11, color: C.muted } }, fmtDate(t.date), accs.length > 1 ? ` · ${acc?.name || ""}` : "")
+          ),
+          /*#__PURE__*/React.createElement("div", { style: { fontWeight: 500, fontSize: 13, color: t.type === "income" ? C.green : C.expense } },
+            t.type === "income" ? "+" : "-", fmt(t.amount, cur?.id || "BOB", S.currencies)
+          )
+        );
+      })
+    )
+  );
+}
+function Inversiones({
+  S,
+  dc,
+  accBal,
+  accBalIn,
+  upd
+}) {
+  const dcId = dc.id;
+  const invAccs = S.accounts.filter(a => a.excludeBalance && a.isInvestment && !a.archived);
+  const [selAccId, setSelAccId] = React.useState(null);
+  const [showCapModal, setShowCapModal] = React.useState(false);
+  const [capForm, setCapForm] = React.useState({ accId: "", newAmt: "" });
+
+  const saveCapital = () => {
+    const acc = S.accounts.find(a => a.id === capForm.accId);
+    if (!acc) return;
+    const newAmt = parseFloat(capForm.newAmt);
+    if (isNaN(newAmt) || newAmt < 0) return;
+    const cur = S.currencies.find(c => c.id === acc.currencyId);
+    const currentBal = accBal(capForm.accId);
+    const diff = newAmt - currentBal;
+    if (Math.abs(diff) < 0.0000001) { setShowCapModal(false); return; }
+    upd(s => {
+      s.transactions.push({
+        id: uid(),
+        date: today(),
+        type: diff > 0 ? "income" : "expense",
+        accountId: capForm.accId,
+        categoryId: "",
+        subcategoryId: "",
+        amount: Math.abs(diff),
+        note: "Actualización de capital"
+      });
+    });
+    setShowCapModal(false);
+    setCapForm({ accId: "", newAmt: "" });
+  };
+
   if (invAccs.length === 0) {
     return /*#__PURE__*/React.createElement("div", {
-      style: {
-        ...st.card,
-        textAlign: "center",
-        padding: 40,
-        color: C.muted
-      }
-    }, /*#__PURE__*/React.createElement("div", {
-      style: {
-        fontSize: 32,
-        marginBottom: 12
-      }
-    }, "\uD83D\uDC8E"), /*#__PURE__*/React.createElement("div", {
-      style: {
-        fontSize: 14,
-        marginBottom: 6
-      }
-    }, "Sin cuentas de inversi\xF3n"), /*#__PURE__*/React.createElement("div", {
-      style: {
-        fontSize: 12
-      }
-    }, "Ve a ", /*#__PURE__*/React.createElement("strong", null, "Cuentas"), " y activa \"No incluir en balance total\"."));
+      style: { ...st.card, textAlign: "center", padding: 40, color: C.muted }
+    },
+      /*#__PURE__*/React.createElement("div", { style: { fontSize: 32, marginBottom: 12 } }, "\uD83D\uDC8E"),
+      /*#__PURE__*/React.createElement("div", { style: { fontSize: 14, marginBottom: 6 } }, "Sin cuentas de inversi\xF3n"),
+      /*#__PURE__*/React.createElement("div", { style: { fontSize: 12 } }, "Ve a ", /*#__PURE__*/React.createElement("strong", null, "Cuentas"), " y activa \"Incluir en Inversiones\".")
+    );
   }
-  return /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: "flex",
-      flexDirection: "column",
-      gap: 20
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: "grid",
-      gridTemplateColumns: "repeat(auto-fit,minmax(140px,1fr))",
-      gap: 10
-    }
-  }, [{
-    l: "Valor en cartera",
-    v: totInv,
-    c: C.blue
-  }, {
-    l: "Rendimientos",
-    v: totInc,
-    c: C.green
-  }, {
-    l: "Costos",
-    v: totExp,
-    c: C.red
-  }, {
-    l: "Retorno neto",
-    v: netR,
-    c: netR >= 0 ? C.green : C.red
-  }].map(k => /*#__PURE__*/React.createElement("div", {
-    key: k.l,
-    style: {
-      ...st.card,
-      borderTop: `3px solid ${k.c}`
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontSize: 11,
-      color: C.muted,
-      marginBottom: 6,
-      textTransform: "uppercase",
-      letterSpacing: "0.04em"
-    }
-  }, k.l), /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontSize: 20,
-      fontWeight: 300,
-      color: k.c
-    }
-  }, fmt(k.v, dcId, S.currencies))))), /*#__PURE__*/React.createElement("div", {
-    style: st.card
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontSize: 11,
-      color: C.muted,
-      textTransform: "uppercase",
-      letterSpacing: "0.04em",
-      marginBottom: 14
-    }
-  }, "Cuentas de inversi\xF3n"), invAccs.map(a => {
-    const cur = S.currencies.find(c => c.id === a.currencyId) || S.currencies[0];
-    const raw = accBal(a.id),
-      cv2 = accBalIn(a.id, dcId);
-    const aInc = invTx.filter(t => t.accountId === a.id && t.type === "income").reduce((s, t) => s + t.amount, 0);
-    return /*#__PURE__*/React.createElement("div", {
-      key: a.id,
-      style: {
-        display: "flex",
-        alignItems: "center",
-        gap: 12,
-        padding: "11px 0",
-        borderBottom: "1px solid #e8e6e1"
-      }
-    }, /*#__PURE__*/React.createElement("div", {
-      style: st.dot(a.color)
-    }), /*#__PURE__*/React.createElement("div", {
-      style: {
-        flex: 1
-      }
-    }, /*#__PURE__*/React.createElement("div", {
-      style: {
-        fontSize: 13,
-        fontWeight: 500
-      }
-    }, a.name), /*#__PURE__*/React.createElement("div", {
-      style: {
-        fontSize: 11,
-        color: C.muted
-      }
-    }, cur.icon, " ", cur.code, " \xB7 Rendimientos: ", fmt(aInc, cur.id, S.currencies))), /*#__PURE__*/React.createElement("div", {
-      style: {
-        textAlign: "right"
-      }
-    }, /*#__PURE__*/React.createElement("div", {
-      style: {
-        fontWeight: 500,
-        color: raw >= 0 ? C.green : C.red
-      }
-    }, fmt(raw, cur.id, S.currencies)), cur.id !== dcId && /*#__PURE__*/React.createElement("div", {
-      style: {
-        fontSize: 11,
-        color: C.muted
-      }
-    }, "\u2248 ", fmt(cv2, dcId, S.currencies))));
-  })), /*#__PURE__*/React.createElement("div", {
-    style: st.card
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontSize: 11,
-      color: C.muted,
-      textTransform: "uppercase",
-      letterSpacing: "0.04em",
-      marginBottom: 16
-    }
-  }, "Rendimientos \u2014 \xFAltimos 12 meses"), months.every(m => m.inc === 0) ? /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontSize: 13,
-      color: C.muted
-    }
-  }, "Sin rendimientos a\xFAn.") : /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: "flex",
-      gap: 4,
-      alignItems: "flex-end",
-      height: 110
-    }
-  }, months.map(m => /*#__PURE__*/React.createElement("div", {
-    key: m.lbl,
-    style: {
-      flex: 1,
-      display: "flex",
-      flexDirection: "column",
-      alignItems: "center",
-      gap: 3
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      width: "100%",
-      background: C.blue,
-      borderRadius: "2px 2px 0 0",
-      opacity: 0.85,
-      height: `${Math.max(m.inc > 0 ? 4 : 0, m.inc / maxM * 90)}px`
-    }
-  }), /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontSize: 9,
-      color: C.muted
-    }
-  }, m.lbl))))), subE.length > 0 && /*#__PURE__*/React.createElement("div", {
-    style: st.card
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontSize: 11,
-      color: C.muted,
-      textTransform: "uppercase",
-      letterSpacing: "0.04em",
-      marginBottom: 14
-    }
-  }, "Por tipo de rendimiento"), subE.map(e => /*#__PURE__*/React.createElement("div", {
-    key: e.label,
-    style: {
-      marginBottom: 14
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: "flex",
-      justifyContent: "space-between",
-      fontSize: 13,
-      marginBottom: 5
-    }
-  }, /*#__PURE__*/React.createElement("span", null, e.icon, " ", e.label), /*#__PURE__*/React.createElement("span", {
-    style: {
-      fontWeight: 500
-    }
-  }, fmt(e.total, dcId, S.currencies))), /*#__PURE__*/React.createElement("div", {
-    style: {
-      height: 3,
-      borderRadius: 3,
-      background: "#e8e6e1"
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      height: "100%",
-      borderRadius: 3,
-      background: e.color,
-      width: `${e.total / maxSub * 100}%`
-    }
-  }))))), recent.length > 0 && /*#__PURE__*/React.createElement("div", {
-    style: st.card
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontSize: 11,
-      color: C.muted,
-      textTransform: "uppercase",
-      letterSpacing: "0.04em",
-      marginBottom: 14
-    }
-  }, "Movimientos recientes"), recent.map(t => {
-    const s2 = S.subcategories?.find(x => x.id === t.subcategoryId);
-    const cat = S.categories.find(c => c.id === t.categoryId);
-    const acc = S.accounts.find(a => a.id === t.accountId);
-    const cur = acc ? S.currencies.find(c => c.id === acc.currencyId) : null;
-    return /*#__PURE__*/React.createElement("div", {
-      key: t.id,
-      style: {
-        display: "flex",
-        alignItems: "center",
-        gap: 12,
-        padding: "10px 0",
-        borderBottom: "1px solid #e8e6e1"
-      }
-    }, /*#__PURE__*/React.createElement("span", {
-      style: {
-        fontSize: 16
-      }
-    }, s2?.icon || cat?.icon || "💰"), /*#__PURE__*/React.createElement("div", {
-      style: {
-        flex: 1,
-        minWidth: 0
-      }
-    }, /*#__PURE__*/React.createElement("div", {
-      style: {
-        fontSize: 13
-      }
-    }, t.note || s2?.name || cat?.name || "—"), /*#__PURE__*/React.createElement("div", {
-      style: {
-        fontSize: 11,
-        color: C.muted
-      }
-    }, fmtDate(t.date), " \xB7 ", acc?.name)), /*#__PURE__*/React.createElement("div", {
-      style: {
-        fontWeight: 500,
-        fontSize: 13,
-        color: t.type === "income" ? C.green : C.expense
-      }
-    }, t.type === "income" ? "+" : "-", fmt(t.amount, cur?.id || "BOB", S.currencies)));
-  })));
+  const selAcc = selAccId ? invAccs.find(a => a.id === selAccId) : null;
+  const activeAccs = selAcc ? [selAcc] : invAccs;
+  const selCur = selAcc ? S.currencies.find(c => c.id === selAcc.currencyId) : null;
+
+  // Preselect account in modal: if a single account is selected use it, else first
+  const modalAcc = capForm.accId ? S.accounts.find(a => a.id === capForm.accId) : null;
+  const modalCur = modalAcc ? S.currencies.find(c => c.id === modalAcc.currencyId) : null;
+  const modalCurBal = modalAcc ? accBal(modalAcc.id) : 0;
+  const modalNewAmt = parseFloat(capForm.newAmt);
+  const modalDiff = !isNaN(modalNewAmt) && capForm.newAmt !== "" ? modalNewAmt - modalCurBal : null;
+
+  return /*#__PURE__*/React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 16 } },
+    // Modal actualizar capital
+    showCapModal && /*#__PURE__*/React.createElement("div", {
+      onClick: () => setShowCapModal(false),
+      style: { position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "flex-end", justifyContent: "center", zIndex: 1000 }
+    },
+      /*#__PURE__*/React.createElement("div", {
+        onClick: e => e.stopPropagation(),
+        style: { background: C.surface, borderRadius: "16px 16px 0 0", padding: "24px 20px 36px", width: "100%", maxWidth: 500, boxShadow: "0 -4px 40px rgba(0,0,0,0.18)" }
+      },
+        /*#__PURE__*/React.createElement("div", { style: { fontWeight: 600, fontSize: 15, marginBottom: 20 } }, "Actualizar capital invertido"),
+        /*#__PURE__*/React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 14 } },
+          /*#__PURE__*/React.createElement("div", null,
+            /*#__PURE__*/React.createElement("label", { style: st.label }, "Cuenta"),
+            /*#__PURE__*/React.createElement("select", {
+              value: capForm.accId,
+              onChange: e => setCapForm(p => ({ ...p, accId: e.target.value, newAmt: "" })),
+              style: st.select
+            },
+              /*#__PURE__*/React.createElement("option", { value: "" }, "\u2014 Seleccionar \u2014"),
+              invAccs.map(a => {
+                const cur = S.currencies.find(c => c.id === a.currencyId);
+                return /*#__PURE__*/React.createElement("option", { key: a.id, value: a.id }, a.name, " (", cur?.code, ")");
+              })
+            )
+          ),
+          modalAcc && /*#__PURE__*/React.createElement("div", { style: { padding: "10px 14px", background: C.bg, borderRadius: 8, fontSize: 13, color: C.muted } },
+            "Saldo actual: ",
+            /*#__PURE__*/React.createElement("span", { style: { fontWeight: 600, color: C.text } }, fmt(modalCurBal, modalCur?.id || dcId, S.currencies))
+          ),
+          modalAcc && /*#__PURE__*/React.createElement("div", null,
+            /*#__PURE__*/React.createElement("label", { style: st.label }, "Nuevo valor en cartera (", modalCur?.code, ")"),
+            /*#__PURE__*/React.createElement("input", {
+              autoFocus: true,
+              type: "number",
+              value: capForm.newAmt,
+              onChange: e => setCapForm(p => ({ ...p, newAmt: e.target.value })),
+              placeholder: String(modalCurBal.toFixed(2)),
+              step: "any",
+              style: { ...st.input, fontSize: 22, fontWeight: 300, border: "none", borderBottom: `1px solid ${C.border}`, borderRadius: 0, padding: "4px 0" }
+            })
+          ),
+          modalDiff !== null && Math.abs(modalDiff) > 0.000001 && /*#__PURE__*/React.createElement("div", {
+            style: { fontSize: 12, padding: "8px 12px", borderRadius: 8, background: modalDiff >= 0 ? C.green + "12" : C.red + "12", border: `1px solid ${modalDiff >= 0 ? C.green : C.red}33`, color: modalDiff >= 0 ? C.green : C.red, fontWeight: 500 }
+          },
+            modalDiff >= 0 ? "\u2197 Ganancia: +" : "\u2198 P\xE9rdida: ",
+            fmt(Math.abs(modalDiff), modalCur?.id || dcId, S.currencies)
+          ),
+          /*#__PURE__*/React.createElement("div", { style: { display: "flex", gap: 8, marginTop: 8 } },
+            /*#__PURE__*/React.createElement("button", { onClick: () => setShowCapModal(false), style: { ...st.btn, flex: 1 } }, "Cancelar"),
+            /*#__PURE__*/React.createElement("button", {
+              onClick: saveCapital,
+              disabled: !capForm.accId || capForm.newAmt === "" || isNaN(modalNewAmt),
+              style: { ...st.btnPri, flex: 1, opacity: (!capForm.accId || capForm.newAmt === "") ? 0.4 : 1, background: C.blue }
+            }, "Guardar")
+          )
+        )
+      )
+    ),
+    // Header con botón +
+    /*#__PURE__*/React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between" } },
+      /*#__PURE__*/React.createElement("span", { style: { fontSize: 13, color: C.muted } }, selAcc ? selAcc.name : "Todas las inversiones"),
+      /*#__PURE__*/React.createElement("button", {
+        onClick: () => {
+          setCapForm({ accId: selAccId || (invAccs[0]?.id || ""), newAmt: "" });
+          setShowCapModal(true);
+        },
+        style: { width: 38, height: 38, borderRadius: "50%", border: "none", background: "#F0B90B", color: "#1a1a1a", fontSize: 22, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 2px 8px rgba(0,0,0,0.18)" }
+      }, "+")
+    ),
+    // Selector de cuentas
+    /*#__PURE__*/React.createElement("div", { style: { ...st.card, padding: "12px 14px" } },
+      /*#__PURE__*/React.createElement("div", { style: { fontSize: 11, color: C.muted, textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 10 } }, "Cuentas de inversi\xF3n"),
+      /*#__PURE__*/React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap" } },
+        /*#__PURE__*/React.createElement("button", {
+          onClick: () => setSelAccId(null),
+          style: {
+            border: `1px solid ${selAccId === null ? C.accent : C.border}`,
+            borderRadius: 20, padding: "6px 14px", fontSize: 12, cursor: "pointer",
+            background: selAccId === null ? C.accent : "none",
+            color: selAccId === null ? C.bg : C.muted, fontWeight: selAccId === null ? 600 : 400
+          }
+        }, "Todas"),
+        invAccs.map(a => {
+          const cur = S.currencies.find(c => c.id === a.currencyId);
+          const raw = accBal(a.id);
+          const isSel = selAccId === a.id;
+          return /*#__PURE__*/React.createElement("button", {
+            key: a.id,
+            onClick: () => setSelAccId(s => s === a.id ? null : a.id),
+            style: {
+              border: `1px solid ${isSel ? a.color : C.border}`,
+              borderRadius: 20, padding: "6px 14px", fontSize: 12, cursor: "pointer",
+              background: isSel ? a.color + "18" : "none",
+              color: isSel ? a.color : C.muted, fontWeight: isSel ? 600 : 400,
+              display: "flex", alignItems: "center", gap: 6
+            }
+          },
+            /*#__PURE__*/React.createElement("span", { style: { width: 8, height: 8, borderRadius: "50%", background: a.color, flexShrink: 0 } }),
+            a.name,
+            /*#__PURE__*/React.createElement("span", { style: { fontSize: 11, opacity: 0.75 } }, fmt(raw, cur?.id || dcId, S.currencies))
+          );
+        })
+      )
+    ),
+    // Stats + gráfica
+    /*#__PURE__*/React.createElement(InvStats, {
+      S, dc, accBal, accBalIn,
+      accs: activeAccs,
+      label: selAcc ? selAcc.name : "Todas",
+      color: selAcc ? selAcc.color : C.blue
+    })
+  );
 }
 function Divisas({
   S,
@@ -4346,6 +4535,7 @@ function Ajustes({
   resetApp
 }) {
   const [confirmReset, setConfirmReset] = React.useState(false);
+  const [confirmReiniciar, setConfirmReiniciar] = React.useState(false);
   const [exportMsg, setExportMsg] = React.useState("");
   const [importMsg, setImportMsg] = React.useState("");
   const [openAdj, setOpenAdj] = React.useState(false);
@@ -4419,6 +4609,20 @@ function Ajustes({
   const doReset = async () => {
     await resetApp();
     setConfirmReset(false);
+  };
+  const doReiniciar = async () => {
+    upd(s => {
+      s.transactions = [];
+      s.transfers = [];
+      s.budgets = [];
+      s.valuations = [];
+      // Restore archived accounts (unarchive all)
+      s.accounts.forEach(a => {
+        a.archived = false;
+        a.initialBalance = 0;
+      });
+    });
+    setConfirmReiniciar(false);
   };
   const row = (label, children) => /*#__PURE__*/React.createElement("div", {
     style: {
@@ -4720,6 +4924,80 @@ function Ajustes({
       }
     }, "Restaurar"));
   }))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      ...st.card,
+      borderLeft: `3px solid ${C.red}`
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11,
+      color: C.muted,
+      textTransform: "uppercase",
+      letterSpacing: "0.05em",
+      marginBottom: 4
+    }
+  }, "Reiniciar datos"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 12,
+      color: C.muted,
+      marginBottom: 12
+    }
+  }, "Borra todos los registros (gastos, ingresos, transferencias, presupuestos, ajustes) pero mantiene tus cuentas y categor\xEDas."), confirmReiniciar ? /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: "#fdf2f2",
+      border: `1px solid ${C.red}44`,
+      borderRadius: 8,
+      padding: "14px 16px"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 14,
+      fontWeight: 500,
+      color: C.red,
+      marginBottom: 14
+    }
+  }, "\xBFBorrar todos los registros? Las cuentas y categor\xEDas se conservan."), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 10
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: doReiniciar,
+    style: {
+      flex: 1,
+      border: "none",
+      background: C.red,
+      color: "#fff",
+      borderRadius: 8,
+      padding: "12px",
+      fontSize: 14,
+      cursor: "pointer",
+      fontWeight: 600
+    }
+  }, "S\xED, reiniciar"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setConfirmReiniciar(false),
+    style: {
+      flex: 1,
+      border: `1px solid ${C.border}`,
+      background: "none",
+      borderRadius: 8,
+      padding: "12px",
+      fontSize: 14,
+      cursor: "pointer",
+      color: C.text,
+      fontWeight: 500
+    }
+  }, "No"))) : /*#__PURE__*/React.createElement("button", {
+    onClick: () => setConfirmReiniciar(true),
+    style: {
+      ...st.btn,
+      color: C.red,
+      borderColor: C.red,
+      fontSize: 13,
+      width: "100%",
+      padding: "10px"
+    }
+  }, "\uD83D\uDD04 Reiniciar registros")), /*#__PURE__*/React.createElement("div", {
     style: {
       textAlign: "center",
       fontSize: 11,
@@ -5164,23 +5442,71 @@ function TransferForm({
     date: today(),
     note: ""
   });
+  const [isInversion, setIsInversion] = React.useState(false);
+  const [amtCurId, setAmtCurId] = React.useState(""); // currency the user enters the amount in
   const f = k => v => setForm(p => ({
     ...p,
     [k]: v
   }));
+  const fromAcc = S.accounts.find(a => a.id === form.fromId);
+  const toAcc = S.accounts.find(a => a.id === form.toId);
+  const fromCur = fromAcc ? S.currencies.find(c => c.id === fromAcc.currencyId) : null;
+  const toCur = toAcc ? S.currencies.find(c => c.id === toAcc.currencyId) : null;
+
+  // Effective amount in fromAcc currency
+  const enteredAmt = parseFloat(form.amount) || 0;
+  const effectiveAmtCur = isInversion && amtCurId ? amtCurId : fromCur?.id || "";
+
+  // Amount in fromAcc's currency (what gets subtracted from fromAcc)
+  const amtFromCur = effectiveAmtCur && fromCur && effectiveAmtCur !== fromCur.id ? cvt(enteredAmt, effectiveAmtCur, fromCur.id, S.currencies) : enteredAmt;
+
+  // Amount that arrives in toAcc's currency
+  const amtToCur = fromCur && toCur && fromCur.id !== toCur.id ? cvt(amtFromCur, fromCur.id, toCur.id, S.currencies) : amtFromCur;
+  const ready = form.fromId && form.toId && form.fromId !== form.toId && enteredAmt > 0 && form.date;
   const save = () => {
-    if (!form.fromId || !form.toId || !form.amount || form.fromId === form.toId) return;
+    if (!ready) return;
     upd(s => {
       s.transfers.push({
-        ...form,
         id: uid(),
-        amount: parseFloat(form.amount)
+        fromId: form.fromId,
+        toId: form.toId,
+        amount: amtFromCur,
+        // deducted from fromAcc (in fromAcc currency)
+        toAmount: amtToCur,
+        // added to toAcc (in toAcc currency)
+        date: form.date,
+        note: form.note
       });
     });
     close();
   };
   const accs = S.accounts.filter(a => !a.archived);
+  const needsConversion = fromCur && toCur && fromCur.id !== toCur.id;
   return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement(FT, null, "Nueva transferencia"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 8,
+      marginBottom: 16
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => setIsInversion(false),
+    style: {
+      ...st.btn,
+      flex: 1,
+      background: !isInversion ? C.accent : C.btnBg,
+      color: !isInversion ? C.bg : C.text,
+      border: `1px solid ${!isInversion ? C.accent : C.border}`
+    }
+  }, "Normal"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setIsInversion(true),
+    style: {
+      ...st.btn,
+      flex: 1,
+      background: isInversion ? C.accent : C.btnBg,
+      color: isInversion ? C.bg : C.text,
+      border: `1px solid ${isInversion ? C.accent : C.border}`
+    }
+  }, "Inversi\xF3n")), /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
       flexDirection: "column",
@@ -5214,15 +5540,35 @@ function TransferForm({
       key: a.id,
       value: a.id
     }, a.name, " (", c?.code, ")");
-  }))), /*#__PURE__*/React.createElement(FF, {
-    label: "Monto"
+  }))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+    style: st.label
+  }, "Monto"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 8,
+      alignItems: "center"
+    }
   }, /*#__PURE__*/React.createElement("input", {
     type: "number",
     value: form.amount,
     onChange: e => f("amount")(e.target.value),
     placeholder: "0.00",
-    style: st.input
-  })), /*#__PURE__*/React.createElement(FF, {
+    style: {
+      ...st.input,
+      flex: 1
+    },
+    step: "any"
+  })), enteredAmt > 0 && needsConversion && /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 12,
+      color: C.green,
+      marginTop: 6,
+      padding: "8px 10px",
+      background: C.green + "12",
+      borderRadius: 6,
+      border: `1px solid ${C.green}33`
+    }
+  }, "\u21AA ", fmt(enteredAmt, fromCur.id, S.currencies), " ", fromCur.code, " \u2192 ", fmt(amtToCur, toCur.id, S.currencies), " ", toCur.code, " (en ", toAcc?.name || "cuenta destino", ")")), /*#__PURE__*/React.createElement(FF, {
     label: "Fecha"
   }, /*#__PURE__*/React.createElement("input", {
     type: "date",
