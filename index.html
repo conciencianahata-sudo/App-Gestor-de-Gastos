@@ -1331,8 +1331,9 @@ function Panel({
       mon.setDate(d.getDate() - day + 1);
       const sun = new Date(mon);
       sun.setDate(mon.getDate() + 6);
-      const from = mon.toISOString().split("T")[0];
-      const to = sun.toISOString().split("T")[0];
+      const fmtLocal = x => `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,"0")}-${String(x.getDate()).padStart(2,"0")}`;
+      const from = fmtLocal(mon);
+      const to = fmtLocal(sun);
       return {
         from,
         to,
@@ -1370,7 +1371,7 @@ function Panel({
     const cat = S.categories.find(c => c.id === b.categoryId);
     if (!cat) return null;
     const bcId = b.currencyId || dcId;
-    const spent = S.transactions.filter(t => t.categoryId === b.categoryId && t.type === "expense" && (b.period === "monthly" ? t.date.startsWith(mKey) : t.date.startsWith(yKey))).reduce((s, t) => {
+    const spent = S.transactions.filter(t => t.categoryId === b.categoryId && t.type === "expense" && !isExcl(t) && (b.period === "monthly" ? t.date.startsWith(mKey) : t.date.startsWith(yKey))).reduce((s, t) => {
       const a = S.accounts.find(x => x.id === t.accountId);
       return s + (a ? cvt(t.amount, a.currencyId, bcId, S.currencies) : t.amount);
     }, 0);
@@ -1387,7 +1388,7 @@ function Panel({
       barColor
     };
   }).filter(Boolean);
-  const recent = [...S.transactions].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 6);
+  const recent = [...S.transactions].filter(t => !isExcl(t)).sort((a, b) => b.date.localeCompare(a.date)).slice(0, 6);
   const cs = `color-scheme:${C.bg === "#141414" ? "dark" : "light"}`;
   const dateInputStyle = {
     ...st.input,
