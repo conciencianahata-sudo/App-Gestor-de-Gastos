@@ -1069,14 +1069,50 @@ function Registro({
         fontWeight: regPeriod === id ? 500 : 400
       }
     }, lbl))),
-    regPeriod === "day" && /*#__PURE__*/React.createElement("input", {
-      type: "date", value: regDate, onChange: e => setRegDate(e.target.value),
-      style: { ...st.input, colorScheme: C.bg === "#141414" ? "dark" : "light", color: C.text }
-    }),
-    regPeriod === "week" && /*#__PURE__*/React.createElement("input", {
-      type: "date", value: regWeek, onChange: e => setRegWeek(e.target.value),
-      style: { ...st.input, colorScheme: C.bg === "#141414" ? "dark" : "light", color: C.text }
-    }),
+    regPeriod === "day" && /*#__PURE__*/React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8 } },
+      /*#__PURE__*/React.createElement("button", {
+        onClick: () => { const d = new Date(regDate + "T12:00:00"); d.setDate(d.getDate()-1); setRegDate(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`); },
+        style: { ...st.btn, padding: "7px 14px", fontSize: 16, flexShrink: 0 }
+      }, "\u2039"),
+      /*#__PURE__*/React.createElement("div", { style: { flex: 1, position: "relative" } },
+        /*#__PURE__*/React.createElement("input", {
+          type: "date", value: regDate, onChange: e => setRegDate(e.target.value),
+          style: { ...st.input, colorScheme: C.bg === "#141414" ? "dark" : "light", color: C.text, position: "absolute", inset: 0, opacity: 0, cursor: "pointer", zIndex: 2, padding: 0, margin: 0 }
+        }),
+        /*#__PURE__*/React.createElement("div", { style: { ...st.input, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 500, fontSize: 13, pointerEvents: "none", userSelect: "none" } },
+          (() => { const [y,m,d] = regDate.split("-").map(Number); const names=["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"]; return `${d} ${names[m-1]} ${y}`; })()
+        )
+      ),
+      /*#__PURE__*/React.createElement("button", {
+        onClick: () => { const d = new Date(regDate + "T12:00:00"); d.setDate(d.getDate()+1); setRegDate(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`); },
+        style: { ...st.btn, padding: "7px 14px", fontSize: 16, flexShrink: 0 }
+      }, "\u203a")
+    ),
+    regPeriod === "week" && /*#__PURE__*/React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8 } },
+      /*#__PURE__*/React.createElement("button", {
+        onClick: () => { const d = new Date(regWeek + "T12:00:00"); d.setDate(d.getDate()-7); setRegWeek(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`); },
+        style: { ...st.btn, padding: "7px 14px", fontSize: 16, flexShrink: 0 }
+      }, "\u2039"),
+      /*#__PURE__*/React.createElement("div", { style: { flex: 1, position: "relative" } },
+        /*#__PURE__*/React.createElement("input", {
+          type: "date", value: regWeek, onChange: e => setRegWeek(e.target.value),
+          style: { ...st.input, colorScheme: C.bg === "#141414" ? "dark" : "light", color: C.text, position: "absolute", inset: 0, opacity: 0, cursor: "pointer", zIndex: 2, padding: 0, margin: 0 }
+        }),
+        /*#__PURE__*/React.createElement("div", { style: { ...st.input, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 500, fontSize: 13, pointerEvents: "none", userSelect: "none" } },
+          (() => {
+            const d = new Date(regWeek + "T12:00:00"); const day = d.getDay()||7;
+            const mon = new Date(d); mon.setDate(d.getDate()-day+1);
+            const sun = new Date(mon); sun.setDate(mon.getDate()+6);
+            const fmt2 = x => `${x.getDate()}/${x.getMonth()+1}`;
+            return `${fmt2(mon)} – ${fmt2(sun)}`;
+          })()
+        )
+      ),
+      /*#__PURE__*/React.createElement("button", {
+        onClick: () => { const d = new Date(regWeek + "T12:00:00"); d.setDate(d.getDate()+7); setRegWeek(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`); },
+        style: { ...st.btn, padding: "7px 14px", fontSize: 16, flexShrink: 0 }
+      }, "\u203a")
+    ),
     regPeriod === "month" && /*#__PURE__*/React.createElement("div", {
       style: { display: "flex", alignItems: "center", gap: 8 }
     },
@@ -1118,11 +1154,27 @@ function Registro({
         style: { ...st.btn, padding: "7px 14px", fontSize: 16, flexShrink: 0 }
       }, "\u203a")
     ),
-    regPeriod === "year" && /*#__PURE__*/React.createElement("select", {
-      value: regYear, onChange: e => setRegYear(e.target.value), style: st.select
-    }, Array.from({ length: 10 }, (_, i) => (new Date().getFullYear() - i).toString()).map(y =>
-      /*#__PURE__*/React.createElement("option", { key: y, value: y }, y)
-    ))
+    regPeriod === "year" && /*#__PURE__*/React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8 } },
+      /*#__PURE__*/React.createElement("button", {
+        onClick: () => setRegYear(y => String(parseInt(y)-1)),
+        style: { ...st.btn, padding: "7px 14px", fontSize: 16, flexShrink: 0 }
+      }, "\u2039"),
+      /*#__PURE__*/React.createElement("div", { style: { flex: 1, position: "relative" } },
+        /*#__PURE__*/React.createElement("select", {
+          value: regYear, onChange: e => setRegYear(e.target.value),
+          style: { ...st.select, position: "absolute", inset: 0, opacity: 0, cursor: "pointer", zIndex: 2, padding: 0, margin: 0, height: "100%" }
+        }, Array.from({ length: 20 }, (_, i) => (new Date().getFullYear()+2 - i).toString()).map(y =>
+          /*#__PURE__*/React.createElement("option", { key: y, value: y }, y)
+        )),
+        /*#__PURE__*/React.createElement("div", { style: { ...st.input, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 500, fontSize: 13, pointerEvents: "none", userSelect: "none" } },
+          regYear
+        )
+      ),
+      /*#__PURE__*/React.createElement("button", {
+        onClick: () => setRegYear(y => String(parseInt(y)+1)),
+        style: { ...st.btn, padding: "7px 14px", fontSize: 16, flexShrink: 0 }
+      }, "\u203a")
+    )
   ),
   recent.length > 0 && /*#__PURE__*/React.createElement("div", {
     style: st.card
@@ -1373,102 +1425,87 @@ function Panel({
       ...st.card,
       padding: "12px 16px"
     }
-  }, period === "day" && /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: "flex",
-      alignItems: "center",
-      gap: 10
-    }
-  }, /*#__PURE__*/React.createElement("span", {
-    style: {
-      fontSize: 12,
-      color: C.muted,
-      flexShrink: 0
-    }
-  }, "D\xEDa:"), /*#__PURE__*/React.createElement("input", {
-    type: "date",
-    value: selDay,
-    onChange: e => setSelDay(e.target.value),
-    style: {
-      ...dateInputStyle,
-      flex: 1,
-      maxWidth: 180
-    }
-  })), period === "week" && /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: "flex",
-      alignItems: "center",
-      gap: 10,
-      flexWrap: "wrap"
-    }
-  }, /*#__PURE__*/React.createElement("span", {
-    style: {
-      fontSize: 12,
-      color: C.muted,
-      flexShrink: 0
-    }
-  }, "Semana del:"), /*#__PURE__*/React.createElement("input", {
-    type: "date",
-    value: selWeek,
-    onChange: e => setSelWeek(e.target.value),
-    style: {
-      ...dateInputStyle,
-      flex: 1,
-      maxWidth: 180
-    }
-  }), /*#__PURE__*/React.createElement("span", {
-    style: {
-      fontSize: 11,
-      color: C.muted
-    }
-  }, label)), period === "month" && /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: "flex",
-      alignItems: "center",
-      gap: 10
-    }
-  }, /*#__PURE__*/React.createElement("span", {
-    style: {
-      fontSize: 12,
-      color: C.muted,
-      flexShrink: 0
-    }
-  }, "Mes:"), /*#__PURE__*/React.createElement("input", {
-    type: "month",
-    value: selMonth,
-    onChange: e => setSelMonth(e.target.value),
-    style: {
-      ...dateInputStyle,
-      flex: 1,
-      maxWidth: 180
-    }
-  })), period === "year" && /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: "flex",
-      alignItems: "center",
-      gap: 10
-    }
-  }, /*#__PURE__*/React.createElement("span", {
-    style: {
-      fontSize: 12,
-      color: C.muted,
-      flexShrink: 0
-    }
-  }, "A\xF1o:"), /*#__PURE__*/React.createElement("select", {
-    value: selYear,
-    onChange: e => setSelYear(e.target.value),
-    style: {
-      ...st.select,
-      flex: 1,
-      maxWidth: 120,
-      colorScheme: C.bg === "#141414" ? "dark" : "light"
-    }
-  }, Array.from({
-    length: 10
-  }, (_, i) => (new Date().getFullYear() - i).toString()).map(y => /*#__PURE__*/React.createElement("option", {
-    key: y,
-    value: y
-  }, y))))), /*#__PURE__*/React.createElement("div", {
+  }, period === "day" && /*#__PURE__*/React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8 } },
+    /*#__PURE__*/React.createElement("button", {
+      onClick: () => { const d = new Date(selDay+"T12:00:00"); d.setDate(d.getDate()-1); setSelDay(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`); },
+      style: { ...st.btn, padding: "7px 14px", fontSize: 16, flexShrink: 0 }
+    }, "\u2039"),
+    /*#__PURE__*/React.createElement("div", { style: { flex: 1, position: "relative" } },
+      /*#__PURE__*/React.createElement("input", {
+        type: "date", value: selDay, onChange: e => setSelDay(e.target.value),
+        style: { ...dateInputStyle, position: "absolute", inset: 0, opacity: 0, cursor: "pointer", zIndex: 2, padding: 0, margin: 0 }
+      }),
+      /*#__PURE__*/React.createElement("div", { style: { ...st.input, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 500, fontSize: 13, pointerEvents: "none", userSelect: "none" } },
+        (() => { const [y,m,d] = selDay.split("-").map(Number); const names=["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"]; return `${d} ${names[m-1]} ${y}`; })()
+      )
+    ),
+    /*#__PURE__*/React.createElement("button", {
+      onClick: () => { const d = new Date(selDay+"T12:00:00"); d.setDate(d.getDate()+1); setSelDay(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`); },
+      style: { ...st.btn, padding: "7px 14px", fontSize: 16, flexShrink: 0 }
+    }, "\u203a")
+  ), period === "week" && /*#__PURE__*/React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8 } },
+    /*#__PURE__*/React.createElement("button", {
+      onClick: () => { const d = new Date(selWeek+"T12:00:00"); d.setDate(d.getDate()-7); setSelWeek(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`); },
+      style: { ...st.btn, padding: "7px 14px", fontSize: 16, flexShrink: 0 }
+    }, "\u2039"),
+    /*#__PURE__*/React.createElement("div", { style: { flex: 1, position: "relative" } },
+      /*#__PURE__*/React.createElement("input", {
+        type: "date", value: selWeek, onChange: e => setSelWeek(e.target.value),
+        style: { ...dateInputStyle, position: "absolute", inset: 0, opacity: 0, cursor: "pointer", zIndex: 2, padding: 0, margin: 0 }
+      }),
+      /*#__PURE__*/React.createElement("div", { style: { ...st.input, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 500, fontSize: 13, pointerEvents: "none", userSelect: "none" } },
+        (() => {
+          const d = new Date(selWeek+"T12:00:00"); const day = d.getDay()||7;
+          const mon = new Date(d); mon.setDate(d.getDate()-day+1);
+          const sun = new Date(mon); sun.setDate(mon.getDate()+6);
+          const f = x => `${x.getDate()}/${x.getMonth()+1}`;
+          return `${f(mon)} – ${f(sun)}`;
+        })()
+      )
+    ),
+    /*#__PURE__*/React.createElement("button", {
+      onClick: () => { const d = new Date(selWeek+"T12:00:00"); d.setDate(d.getDate()+7); setSelWeek(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`); },
+      style: { ...st.btn, padding: "7px 14px", fontSize: 16, flexShrink: 0 }
+    }, "\u203a")
+  ), period === "month" && /*#__PURE__*/React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8 } },
+    /*#__PURE__*/React.createElement("button", {
+      onClick: () => { const [y,m] = selMonth.split("-").map(Number); const d = new Date(y,m-2,1); setSelMonth(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`); },
+      style: { ...st.btn, padding: "7px 14px", fontSize: 16, flexShrink: 0 }
+    }, "\u2039"),
+    /*#__PURE__*/React.createElement("div", { style: { flex: 1, position: "relative" } },
+      /*#__PURE__*/React.createElement("input", {
+        type: "month", value: selMonth, onChange: e => setSelMonth(e.target.value),
+        style: { ...dateInputStyle, position: "absolute", inset: 0, opacity: 0, cursor: "pointer", zIndex: 2, padding: 0, margin: 0 }
+      }),
+      /*#__PURE__*/React.createElement("div", { style: { ...st.input, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 500, fontSize: 13, pointerEvents: "none", userSelect: "none" } },
+        (() => { const [y,m] = selMonth.split("-").map(Number); const names=["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"]; return `${names[m-1]} ${y}`; })()
+      )
+    ),
+    /*#__PURE__*/React.createElement("button", {
+      onClick: () => { const [y,m] = selMonth.split("-").map(Number); const d = new Date(y,m,1); setSelMonth(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`); },
+      style: { ...st.btn, padding: "7px 14px", fontSize: 16, flexShrink: 0 }
+    }, "\u203a")
+  ), period === "year" && /*#__PURE__*/React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8 } },
+    /*#__PURE__*/React.createElement("button", {
+      onClick: () => setSelYear(y => String(parseInt(y)-1)),
+      style: { ...st.btn, padding: "7px 14px", fontSize: 16, flexShrink: 0 }
+    }, "\u2039"),
+    /*#__PURE__*/React.createElement("div", { style: { flex: 1, position: "relative" } },
+      /*#__PURE__*/React.createElement("select", {
+        value: selYear, onChange: e => setSelYear(e.target.value),
+        style: { ...st.select, position: "absolute", inset: 0, opacity: 0, cursor: "pointer", zIndex: 2, padding: 0, margin: 0, height: "100%" }
+      }, Array.from({ length: 20 }, (_, i) => (new Date().getFullYear()+2-i).toString()).map(y =>
+        /*#__PURE__*/React.createElement("option", { key: y, value: y }, y)
+      )),
+      /*#__PURE__*/React.createElement("div", { style: { ...st.input, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 500, fontSize: 13, pointerEvents: "none", userSelect: "none" } },
+        selYear
+      )
+    ),
+    /*#__PURE__*/React.createElement("button", {
+      onClick: () => setSelYear(y => String(parseInt(y)+1)),
+      style: { ...st.btn, padding: "7px 14px", fontSize: 16, flexShrink: 0 }
+    }, "\u203a")
+  )), /*#__PURE__*/React.createElement("div", {
     style: {
       ...st.card,
       padding: 24
