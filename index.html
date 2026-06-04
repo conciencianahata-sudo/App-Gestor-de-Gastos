@@ -57,7 +57,7 @@ let C = LIGHT;
 const ICONS = ["💰", "🏠", "🚗", "🍔", "💊", "📚", "✈️", "🎮", "👗", "💡", "📱", "🏋️", "🎵", "🐾", "💼", "📈", "🏦", "💳", "🎁", "🛒", "⚡", "🌊", "🔧", "🍷", "☕", "🎓", "🏥", "💎", "🌱", "🎯", "🍕", "🍣", "🧃", "🏪", "🏬", "🚌", "🚇", "⛽", "🅿️", "🧴", "👟", "👒", "💅", "🧹", "🛋️", "🖥️", "🖨️", "🎒", "🧳", "🌍", "🏖️", "🎪", "🎭", "🎨", "🎬", "📷", "🎤", "🧘", "🚴", "🏊", "⚽", "🎾", "🏀", "🎲", "🧩", "🃏", "🐶", "🐱", "🌸", "🌻", "🍎", "🥑", "🧁", "🍰", "🥂", "🍺", "🛍️", "📦", "🔑", "🏡", "🌙", "☀️", "❄️", "🔥", "💧", "🌿", "🪴", "💻", "⌚", "📡", "🔋", "🪙", "💵", "💶", "💷", "🧾", "📊", "📉", "📌", "✂️", "🖊️", "📝", "🗂️", "🔐", "🛡️", "⚙️", "🔩", "🪛", "🏗️", "🚧", "🎓", "👔", "👩‍💼", "👨‍💼", "🤝", "🏆", "🥇", "🎖️"];
 const COLORS = ["#2d6a4f", "#2c5f8a", "#6b4c9a", "#b5392b", "#c47c1a", "#2a7a7a", "#5a6e32", "#8a3a6b", "#3a5a8a", "#7a4a2a", "#1a7a4a", "#4a2a7a", "#7a1a2a", "#1a4a7a", "#7a4a1a", "#2a4a2a", "#4a1a4a", "#1a2a4a", "#4a3a1a", "#2a1a4a", "#e07b1a", "#c0392b", "#8e44ad", "#2980b9", "#27ae60", "#f39c12", "#16a085", "#d35400", "#2c3e50", "#7f8c8d", "#e74c3c", "#3498db", "#2ecc71", "#f1c40f", "#1abc9c", "#e67e22", "#9b59b6", "#34495e", "#95a5a6", "#c0392b"];
 const uid = () => Math.random().toString(36).slice(2, 10);
-const today = () => new Date().toISOString().split("T")[0];
+const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
 const getSt = () => ({
   card: {
     background: C.cardBg,
@@ -914,15 +914,13 @@ function Registro({
     });
     setConfirmDel(null);
   };
-  const [regPeriod, setRegPeriod] = React.useState("all");
+  const [regPeriod, setRegPeriod] = React.useState("day");
   const [regDate, setRegDate] = React.useState(today());
   const [regMonth, setRegMonth] = React.useState(today().slice(0, 7));
   const [regWeek, setRegWeek] = React.useState(today());
+  const [regYear, setRegYear] = React.useState(new Date().getFullYear().toString());
   const getRegRange = () => {
-    if (regPeriod === "day") return {
-      from: regDate,
-      to: regDate
-    };
+    if (regPeriod === "day") return { from: regDate, to: regDate };
     if (regPeriod === "week") {
       const d = new Date(regWeek + "T12:00:00");
       const day = d.getDay() || 7;
@@ -930,15 +928,10 @@ function Registro({
       mon.setDate(d.getDate() - day + 1);
       const sun = new Date(mon);
       sun.setDate(mon.getDate() + 6);
-      return {
-        from: mon.toISOString().split("T")[0],
-        to: sun.toISOString().split("T")[0]
-      };
+      return { from: mon.toISOString().split("T")[0], to: sun.toISOString().split("T")[0] };
     }
-    if (regPeriod === "month") return {
-      from: `${regMonth}-01`,
-      to: `${regMonth}-31`
-    };
+    if (regPeriod === "month") return { from: `${regMonth}-01`, to: `${regMonth}-31` };
+    if (regPeriod === "year") return { from: `${regYear}-01-01`, to: `${regYear}-12-31` };
     return null;
   };
   const regRange = getRegRange();
@@ -947,6 +940,12 @@ function Registro({
     if (!regRange) return true;
     return t.date >= regRange.from && t.date <= regRange.to;
   }).sort((a, b) => b.date.localeCompare(a.date));
+  const periodTotal = recent.reduce((s, t) => {
+    const acc = S.accounts.find(a => a.id === t.accountId);
+    const cur = acc ? S.currencies.find(c => c.id === acc.currencyId) : null;
+    return s + t.amount;
+  }, 0);
+  const periodLabelMap = { day: "Hoy", week: "Esta semana", month: "Este mes", year: "Este año" };
   return /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
@@ -1019,70 +1018,116 @@ function Registro({
       setEditForm(null);
     },
     saveLabel: "Guardar cambios"
-  }), /*#__PURE__*/React.createElement("div", {
+  }),
+  /*#__PURE__*/React.createElement("div", {
     style: {
+      ...st.card,
+      borderLeft: `3px solid ${sub === "expense" ? C.expense : C.green}`,
+      padding: "14px 18px",
       display: "flex",
-      flexDirection: "column",
-      gap: 8
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: 12
     }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: "flex",
-      background: C.surface,
-      border: `1px solid ${C.border}`,
-      borderRadius: 8,
-      overflow: "hidden"
-    }
-  }, [["all", "Todo"], ["day", "Día"], ["week", "Semana"], ["month", "Mes"]].map(([id, lbl]) => /*#__PURE__*/React.createElement("button", {
-    key: id,
-    onClick: () => setRegPeriod(id),
-    style: {
-      flex: 1,
-      border: "none",
-      padding: "8px 4px",
-      fontSize: 12,
-      cursor: "pointer",
-      background: regPeriod === id ? C.accent : C.btnBg,
-      color: regPeriod === id ? C.bg : C.text,
-      fontWeight: regPeriod === id ? 500 : 400
-    }
-  }, lbl))), regPeriod === "day" && /*#__PURE__*/React.createElement("input", {
-    type: "date",
-    value: regDate,
-    onChange: e => setRegDate(e.target.value),
-    style: {
-      ...st.input,
-      colorScheme: C.bg === "#141414" ? "dark" : "light",
-      color: C.text
-    }
-  }), regPeriod === "week" && /*#__PURE__*/React.createElement("input", {
-    type: "date",
-    value: regWeek,
-    onChange: e => setRegWeek(e.target.value),
-    style: {
-      ...st.input,
-      colorScheme: C.bg === "#141414" ? "dark" : "light",
-      color: C.text
-    }
-  }), regPeriod === "month" && /*#__PURE__*/React.createElement("input", {
-    type: "month",
-    value: regMonth,
-    onChange: e => setRegMonth(e.target.value),
-    style: {
-      ...st.input,
-      colorScheme: C.bg === "#141414" ? "dark" : "light",
-      color: C.text
-    }
-  })), recent.length > 0 && /*#__PURE__*/React.createElement("div", {
+  },
+    /*#__PURE__*/React.createElement("div", { style: { minWidth: 0 } },
+      /*#__PURE__*/React.createElement("div", {
+        style: { fontSize: 11, color: C.muted, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }
+      }, sub === "expense" ? "Total gastos" : "Total ingresos", " \xB7 ", { day: "D\xEDa", week: "Semana", month: "Mes", year: "A\xF1o" }[regPeriod]),
+      /*#__PURE__*/React.createElement("div", {
+        style: { fontSize: 26, fontWeight: 300, color: sub === "expense" ? C.expense : C.green, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }
+      }, (() => {
+        if (recent.length === 0) {
+          const defCur = S.currencies.find(c => c.id === (S.accounts.find(a => a.id === S.defaultAccountId)?.currencyId)) || S.currencies[0];
+          return (defCur?.symbol || "") + "0.00";
+        }
+        const byCur = {};
+        recent.forEach(t => {
+          const acc = S.accounts.find(a => a.id === t.accountId);
+          const cid = acc?.currencyId || S.currencies[0]?.id || "BOB";
+          byCur[cid] = (byCur[cid] || 0) + t.amount;
+        });
+        return Object.keys(byCur).map(cid => fmt(byCur[cid], cid, S.currencies)).join("  +  ");
+      })())
+    ),
+    /*#__PURE__*/React.createElement("div", { style: { fontSize: 12, color: C.muted, flexShrink: 0, textAlign: "right" } },
+      recent.length, " registro", recent.length !== 1 ? "s" : ""
+    )
+  ),
+  /*#__PURE__*/React.createElement("div", {
+    style: { display: "flex", flexDirection: "column", gap: 8 }
+  },
+    /*#__PURE__*/React.createElement("div", {
+      style: { display: "flex", background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden" }
+    }, [["day", "D\xEDa"], ["week", "Semana"], ["month", "Mes"], ["year", "A\xF1o"]].map(([id, lbl]) => /*#__PURE__*/React.createElement("button", {
+      key: id,
+      onClick: () => setRegPeriod(id),
+      style: {
+        flex: 1, border: "none", padding: "8px 4px", fontSize: 12, cursor: "pointer",
+        background: regPeriod === id ? C.accent : C.btnBg,
+        color: regPeriod === id ? C.bg : C.text,
+        fontWeight: regPeriod === id ? 500 : 400
+      }
+    }, lbl))),
+    regPeriod === "day" && /*#__PURE__*/React.createElement("input", {
+      type: "date", value: regDate, onChange: e => setRegDate(e.target.value),
+      style: { ...st.input, colorScheme: C.bg === "#141414" ? "dark" : "light", color: C.text }
+    }),
+    regPeriod === "week" && /*#__PURE__*/React.createElement("input", {
+      type: "date", value: regWeek, onChange: e => setRegWeek(e.target.value),
+      style: { ...st.input, colorScheme: C.bg === "#141414" ? "dark" : "light", color: C.text }
+    }),
+    regPeriod === "month" && /*#__PURE__*/React.createElement("div", {
+      style: { display: "flex", alignItems: "center", gap: 8 }
+    },
+      /*#__PURE__*/React.createElement("button", {
+        onClick: () => {
+          const [y, m] = regMonth.split("-").map(Number);
+          const d = new Date(y, m - 2, 1);
+          setRegMonth(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`);
+        },
+        style: { ...st.btn, padding: "7px 14px", fontSize: 16, flexShrink: 0 }
+      }, "\u2039"),
+      /*#__PURE__*/React.createElement("div", {
+        style: { flex: 1, position: "relative" }
+      },
+        /*#__PURE__*/React.createElement("input", {
+          type: "month", value: regMonth, onChange: e => setRegMonth(e.target.value),
+          style: {
+            ...st.input, colorScheme: C.bg === "#141414" ? "dark" : "light", color: C.text,
+            position: "absolute", inset: 0, opacity: 0, cursor: "pointer", zIndex: 2, padding: 0, margin: 0
+          }
+        }),
+        /*#__PURE__*/React.createElement("div", {
+          style: {
+            ...st.input, display: "flex", alignItems: "center", justifyContent: "center",
+            fontWeight: 500, fontSize: 13, pointerEvents: "none", userSelect: "none"
+          }
+        }, (() => {
+          const [y, m] = regMonth.split("-").map(Number);
+          const names = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+          return `${names[m-1]} ${y}`;
+        })())
+      ),
+      /*#__PURE__*/React.createElement("button", {
+        onClick: () => {
+          const [y, m] = regMonth.split("-").map(Number);
+          const d = new Date(y, m, 1);
+          setRegMonth(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`);
+        },
+        style: { ...st.btn, padding: "7px 14px", fontSize: 16, flexShrink: 0 }
+      }, "\u203a")
+    ),
+    regPeriod === "year" && /*#__PURE__*/React.createElement("select", {
+      value: regYear, onChange: e => setRegYear(e.target.value), style: st.select
+    }, Array.from({ length: 10 }, (_, i) => (new Date().getFullYear() - i).toString()).map(y =>
+      /*#__PURE__*/React.createElement("option", { key: y, value: y }, y)
+    ))
+  ),
+  recent.length > 0 && /*#__PURE__*/React.createElement("div", {
     style: st.card
   }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontSize: 11,
-      color: C.muted,
-      textTransform: "uppercase",
-      letterSpacing: "0.05em",
-      marginBottom: 14
-    }
+    style: { fontSize: 11, color: C.muted, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 14 }
   }, sub === "expense" ? "Gastos" : "Ingresos", " \xB7 ", recent.length, " registro", recent.length !== 1 ? "s" : ""), recent.map(t => {
     const s2 = S.subcategories?.find(x => x.id === t.subcategoryId);
     const cat = S.categories.find(x => x.id === t.categoryId);
@@ -1204,7 +1249,7 @@ function Panel({
   accBalIn,
   totalBal
 }) {
-  const [period, setPeriod] = React.useState("month");
+  const [period, setPeriod] = React.useState("day");
   const now = new Date();
   const dcId = dc.id;
   const isExcl = t => S.accounts.find(a => a.id === t.accountId)?.excludeBalance;
