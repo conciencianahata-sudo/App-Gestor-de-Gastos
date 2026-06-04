@@ -937,6 +937,8 @@ function Registro({
   const regRange = getRegRange();
   const recent = [...S.transactions].filter(t => {
     if (t.type !== sub || t.note === "Ajuste de saldo") return false;
+    const acc = S.accounts.find(a => a.id === t.accountId);
+    if (acc?.isInvestment) return false;
     if (!regRange) return true;
     return t.date >= regRange.from && t.date <= regRange.to;
   }).sort((a, b) => b.date.localeCompare(a.date));
