@@ -57,7 +57,7 @@ let C = LIGHT;
 const ICONS = ["💰", "🏠", "🚗", "🍔", "💊", "📚", "✈️", "🎮", "👗", "💡", "📱", "🏋️", "🎵", "🐾", "💼", "📈", "🏦", "💳", "🎁", "🛒", "⚡", "🌊", "🔧", "🍷", "☕", "🎓", "🏥", "💎", "🌱", "🎯", "🍕", "🍣", "🧃", "🏪", "🏬", "🚌", "🚇", "⛽", "🅿️", "🧴", "👟", "👒", "💅", "🧹", "🛋️", "🖥️", "🖨️", "🎒", "🧳", "🌍", "🏖️", "🎪", "🎭", "🎨", "🎬", "📷", "🎤", "🧘", "🚴", "🏊", "⚽", "🎾", "🏀", "🎲", "🧩", "🃏", "🐶", "🐱", "🌸", "🌻", "🍎", "🥑", "🧁", "🍰", "🥂", "🍺", "🛍️", "📦", "🔑", "🏡", "🌙", "☀️", "❄️", "🔥", "💧", "🌿", "🪴", "💻", "⌚", "📡", "🔋", "🪙", "💵", "💶", "💷", "🧾", "📊", "📉", "📌", "✂️", "🖊️", "📝", "🗂️", "🔐", "🛡️", "⚙️", "🔩", "🪛", "🏗️", "🚧", "🎓", "👔", "👩‍💼", "👨‍💼", "🤝", "🏆", "🥇", "🎖️"];
 const COLORS = ["#2d6a4f", "#2c5f8a", "#6b4c9a", "#b5392b", "#c47c1a", "#2a7a7a", "#5a6e32", "#8a3a6b", "#3a5a8a", "#7a4a2a", "#1a7a4a", "#4a2a7a", "#7a1a2a", "#1a4a7a", "#7a4a1a", "#2a4a2a", "#4a1a4a", "#1a2a4a", "#4a3a1a", "#2a1a4a", "#e07b1a", "#c0392b", "#8e44ad", "#2980b9", "#27ae60", "#f39c12", "#16a085", "#d35400", "#2c3e50", "#7f8c8d", "#e74c3c", "#3498db", "#2ecc71", "#f1c40f", "#1abc9c", "#e67e22", "#9b59b6", "#34495e", "#95a5a6", "#c0392b"];
 const uid = () => Math.random().toString(36).slice(2, 10);
-const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
+const today = () => new Date().toISOString().split("T")[0];
 const getSt = () => ({
   card: {
     background: C.cardBg,
@@ -93,8 +93,7 @@ const getSt = () => ({
     background: C.inputBg,
     color: C.text,
     outline: "none",
-    boxSizing: "border-box",
-    colorScheme: C.bg === "#141414" ? "dark" : "light"
+    boxSizing: "border-box"
   },
   btn: {
     border: `1px solid ${C.border}`,
@@ -604,7 +603,7 @@ function TransactionForm({
       catId: s.catId
     };
   })];
-  const ready = form.accountId && form.date && form.amount && parseFloat(form.amount) > 0 && (form.itemId || form.note.trim());
+  const ready = form.accountId && form.itemId && form.date && form.amount && parseFloat(form.amount) > 0;
   return /*#__PURE__*/React.createElement("div", {
     style: {
       ...st.card,
@@ -728,16 +727,7 @@ function TransactionForm({
     })));
   })()), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
     style: st.label
-  }, "Detalle"), /*#__PURE__*/React.createElement("input", {
-    value: form.note,
-    onChange: e => ff("note")(e.target.value),
-    placeholder: "Descripci\xF3n\u2026",
-    style: st.input
-  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
-    style: st.label
-  }, "Categor\xEDa ", /*#__PURE__*/React.createElement("span", {
-    style: { textTransform: "none", letterSpacing: 0, fontSize: 10 }
-  }, "(opcional)")), allItems.length === 0 ? /*#__PURE__*/React.createElement("div", {
+  }, "Categor\xEDa"), allItems.length === 0 ? /*#__PURE__*/React.createElement("div", {
     style: {
       fontSize: 12,
       color: C.muted
@@ -748,25 +738,11 @@ function TransactionForm({
       gap: 8,
       flexWrap: "wrap"
     }
-  }, form.itemId && /*#__PURE__*/React.createElement("button", {
-    onClick: () => ff("itemId")(""),
-    style: {
-      border: `1px solid ${C.border}`,
-      borderRadius: 20,
-      padding: "5px 12px",
-      fontSize: 12,
-      cursor: "pointer",
-      background: "none",
-      color: C.muted,
-      display: "flex",
-      alignItems: "center",
-      gap: 5
-    }
-  }, "\u2715 Sin categor\xEDa"), allItems.map(item => {
+  }, allItems.map(item => {
     const sel = form.itemId === item.id;
     return /*#__PURE__*/React.createElement("button", {
       key: item.id,
-      onClick: () => ff("itemId")(sel ? "" : item.id),
+      onClick: () => ff("itemId")(item.id),
       style: {
         border: `1px solid ${sel ? item.color : C.border}`,
         borderRadius: 20,
@@ -792,6 +768,19 @@ function TransactionForm({
       width: 160,
       colorScheme: C.bg === "#141414" ? "dark" : "light"
     }
+  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+    style: st.label
+  }, "Detalle ", /*#__PURE__*/React.createElement("span", {
+    style: {
+      textTransform: "none",
+      letterSpacing: 0,
+      fontSize: 10
+    }
+  }, "(opcional)")), /*#__PURE__*/React.createElement("input", {
+    value: form.note,
+    onChange: e => ff("note")(e.target.value),
+    placeholder: "Descripci\xF3n\u2026",
+    style: st.input
   })), /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
@@ -924,13 +913,15 @@ function Registro({
     });
     setConfirmDel(null);
   };
-  const [regPeriod, setRegPeriod] = React.useState("day");
+  const [regPeriod, setRegPeriod] = React.useState("all");
   const [regDate, setRegDate] = React.useState(today());
   const [regMonth, setRegMonth] = React.useState(today().slice(0, 7));
   const [regWeek, setRegWeek] = React.useState(today());
-  const [regYear, setRegYear] = React.useState(new Date().getFullYear().toString());
   const getRegRange = () => {
-    if (regPeriod === "day") return { from: regDate, to: regDate };
+    if (regPeriod === "day") return {
+      from: regDate,
+      to: regDate
+    };
     if (regPeriod === "week") {
       const d = new Date(regWeek + "T12:00:00");
       const day = d.getDay() || 7;
@@ -938,26 +929,23 @@ function Registro({
       mon.setDate(d.getDate() - day + 1);
       const sun = new Date(mon);
       sun.setDate(mon.getDate() + 6);
-      return { from: mon.toISOString().split("T")[0], to: sun.toISOString().split("T")[0] };
+      return {
+        from: mon.toISOString().split("T")[0],
+        to: sun.toISOString().split("T")[0]
+      };
     }
-    if (regPeriod === "month") return { from: `${regMonth}-01`, to: `${regMonth}-31` };
-    if (regPeriod === "year") return { from: `${regYear}-01-01`, to: `${regYear}-12-31` };
+    if (regPeriod === "month") return {
+      from: `${regMonth}-01`,
+      to: `${regMonth}-31`
+    };
     return null;
   };
   const regRange = getRegRange();
   const recent = [...S.transactions].filter(t => {
     if (t.type !== sub || t.note === "Ajuste de saldo") return false;
-    const acc = S.accounts.find(a => a.id === t.accountId);
-    if (acc?.isInvestment) return false;
     if (!regRange) return true;
     return t.date >= regRange.from && t.date <= regRange.to;
   }).sort((a, b) => b.date.localeCompare(a.date));
-  const periodTotal = recent.reduce((s, t) => {
-    const acc = S.accounts.find(a => a.id === t.accountId);
-    const cur = acc ? S.currencies.find(c => c.id === acc.currencyId) : null;
-    return s + t.amount;
-  }, 0);
-  const periodLabelMap = { day: "Hoy", week: "Esta semana", month: "Este mes", year: "Este año" };
   return /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
@@ -1030,168 +1018,70 @@ function Registro({
       setEditForm(null);
     },
     saveLabel: "Guardar cambios"
-  }),
-  /*#__PURE__*/React.createElement("div", {
+  }), /*#__PURE__*/React.createElement("div", {
     style: {
-      ...st.card,
-      borderLeft: `3px solid ${sub === "expense" ? C.expense : C.green}`,
-      padding: "14px 18px",
       display: "flex",
-      alignItems: "center",
-      justifyContent: "space-between",
-      gap: 12
+      flexDirection: "column",
+      gap: 8
     }
-  },
-    /*#__PURE__*/React.createElement("div", { style: { minWidth: 0 } },
-      /*#__PURE__*/React.createElement("div", {
-        style: { fontSize: 11, color: C.muted, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }
-      }, sub === "expense" ? "Total gastos" : "Total ingresos", " \xB7 ", { day: "D\xEDa", week: "Semana", month: "Mes", year: "A\xF1o" }[regPeriod]),
-      /*#__PURE__*/React.createElement("div", {
-        style: { fontSize: 26, fontWeight: 300, color: sub === "expense" ? C.expense : C.green, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }
-      }, (() => {
-        if (recent.length === 0) {
-          const defCur = S.currencies.find(c => c.id === (S.accounts.find(a => a.id === S.defaultAccountId)?.currencyId)) || S.currencies[0];
-          return (defCur?.symbol || "") + "0.00";
-        }
-        const byCur = {};
-        recent.forEach(t => {
-          const acc = S.accounts.find(a => a.id === t.accountId);
-          const cid = acc?.currencyId || S.currencies[0]?.id || "BOB";
-          byCur[cid] = (byCur[cid] || 0) + t.amount;
-        });
-        return Object.keys(byCur).map(cid => fmt(byCur[cid], cid, S.currencies)).join("  +  ");
-      })())
-    ),
-    /*#__PURE__*/React.createElement("div", { style: { fontSize: 12, color: C.muted, flexShrink: 0, textAlign: "right" } },
-      recent.length, " registro", recent.length !== 1 ? "s" : ""
-    )
-  ),
-  /*#__PURE__*/React.createElement("div", {
-    style: { display: "flex", flexDirection: "column", gap: 8 }
-  },
-    /*#__PURE__*/React.createElement("div", {
-      style: { display: "flex", background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden" }
-    }, [["day", "D\xEDa"], ["week", "Semana"], ["month", "Mes"], ["year", "A\xF1o"]].map(([id, lbl]) => /*#__PURE__*/React.createElement("button", {
-      key: id,
-      onClick: () => setRegPeriod(id),
-      style: {
-        flex: 1, border: "none", padding: "8px 4px", fontSize: 12, cursor: "pointer",
-        background: regPeriod === id ? C.accent : C.btnBg,
-        color: regPeriod === id ? C.bg : C.text,
-        fontWeight: regPeriod === id ? 500 : 400
-      }
-    }, lbl))),
-    regPeriod === "day" && /*#__PURE__*/React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8 } },
-      /*#__PURE__*/React.createElement("button", {
-        onClick: () => { const d = new Date(regDate + "T12:00:00"); d.setDate(d.getDate()-1); setRegDate(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`); },
-        style: { ...st.btn, padding: "7px 14px", fontSize: 16, flexShrink: 0 }
-      }, "\u2039"),
-      /*#__PURE__*/React.createElement("div", { style: { flex: 1, position: "relative" } },
-        /*#__PURE__*/React.createElement("input", {
-          type: "date", value: regDate, onChange: e => setRegDate(e.target.value),
-          style: { ...st.input, colorScheme: C.bg === "#141414" ? "dark" : "light", color: C.text, position: "absolute", inset: 0, opacity: 0, cursor: "pointer", zIndex: 2, padding: 0, margin: 0 }
-        }),
-        /*#__PURE__*/React.createElement("div", { style: { ...st.input, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 500, fontSize: 13, pointerEvents: "none", userSelect: "none" } },
-          (() => { const [y,m,d] = regDate.split("-").map(Number); const names=["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"]; return `${d} ${names[m-1]} ${y}`; })()
-        )
-      ),
-      /*#__PURE__*/React.createElement("button", {
-        onClick: () => { const d = new Date(regDate + "T12:00:00"); d.setDate(d.getDate()+1); setRegDate(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`); },
-        style: { ...st.btn, padding: "7px 14px", fontSize: 16, flexShrink: 0 }
-      }, "\u203a")
-    ),
-    regPeriod === "week" && /*#__PURE__*/React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8 } },
-      /*#__PURE__*/React.createElement("button", {
-        onClick: () => { const d = new Date(regWeek + "T12:00:00"); d.setDate(d.getDate()-7); setRegWeek(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`); },
-        style: { ...st.btn, padding: "7px 14px", fontSize: 16, flexShrink: 0 }
-      }, "\u2039"),
-      /*#__PURE__*/React.createElement("div", { style: { flex: 1, position: "relative" } },
-        /*#__PURE__*/React.createElement("input", {
-          type: "date", value: regWeek, onChange: e => setRegWeek(e.target.value),
-          style: { ...st.input, colorScheme: C.bg === "#141414" ? "dark" : "light", color: C.text, position: "absolute", inset: 0, opacity: 0, cursor: "pointer", zIndex: 2, padding: 0, margin: 0 }
-        }),
-        /*#__PURE__*/React.createElement("div", { style: { ...st.input, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 500, fontSize: 13, pointerEvents: "none", userSelect: "none" } },
-          (() => {
-            const d = new Date(regWeek + "T12:00:00"); const day = d.getDay()||7;
-            const mon = new Date(d); mon.setDate(d.getDate()-day+1);
-            const sun = new Date(mon); sun.setDate(mon.getDate()+6);
-            const fmt2 = x => `${x.getDate()}/${x.getMonth()+1}`;
-            return `${fmt2(mon)} – ${fmt2(sun)}`;
-          })()
-        )
-      ),
-      /*#__PURE__*/React.createElement("button", {
-        onClick: () => { const d = new Date(regWeek + "T12:00:00"); d.setDate(d.getDate()+7); setRegWeek(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`); },
-        style: { ...st.btn, padding: "7px 14px", fontSize: 16, flexShrink: 0 }
-      }, "\u203a")
-    ),
-    regPeriod === "month" && /*#__PURE__*/React.createElement("div", {
-      style: { display: "flex", alignItems: "center", gap: 8 }
-    },
-      /*#__PURE__*/React.createElement("button", {
-        onClick: () => {
-          const [y, m] = regMonth.split("-").map(Number);
-          const d = new Date(y, m - 2, 1);
-          setRegMonth(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`);
-        },
-        style: { ...st.btn, padding: "7px 14px", fontSize: 16, flexShrink: 0 }
-      }, "\u2039"),
-      /*#__PURE__*/React.createElement("div", {
-        style: { flex: 1, position: "relative" }
-      },
-        /*#__PURE__*/React.createElement("input", {
-          type: "month", value: regMonth, onChange: e => setRegMonth(e.target.value),
-          style: {
-            ...st.input, colorScheme: C.bg === "#141414" ? "dark" : "light", color: C.text,
-            position: "absolute", inset: 0, opacity: 0, cursor: "pointer", zIndex: 2, padding: 0, margin: 0
-          }
-        }),
-        /*#__PURE__*/React.createElement("div", {
-          style: {
-            ...st.input, display: "flex", alignItems: "center", justifyContent: "center",
-            fontWeight: 500, fontSize: 13, pointerEvents: "none", userSelect: "none"
-          }
-        }, (() => {
-          const [y, m] = regMonth.split("-").map(Number);
-          const names = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
-          return `${names[m-1]} ${y}`;
-        })())
-      ),
-      /*#__PURE__*/React.createElement("button", {
-        onClick: () => {
-          const [y, m] = regMonth.split("-").map(Number);
-          const d = new Date(y, m, 1);
-          setRegMonth(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`);
-        },
-        style: { ...st.btn, padding: "7px 14px", fontSize: 16, flexShrink: 0 }
-      }, "\u203a")
-    ),
-    regPeriod === "year" && /*#__PURE__*/React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8 } },
-      /*#__PURE__*/React.createElement("button", {
-        onClick: () => setRegYear(y => String(parseInt(y)-1)),
-        style: { ...st.btn, padding: "7px 14px", fontSize: 16, flexShrink: 0 }
-      }, "\u2039"),
-      /*#__PURE__*/React.createElement("div", { style: { flex: 1, position: "relative" } },
-        /*#__PURE__*/React.createElement("select", {
-          value: regYear, onChange: e => setRegYear(e.target.value),
-          style: { ...st.select, position: "absolute", inset: 0, opacity: 0, cursor: "pointer", zIndex: 2, padding: 0, margin: 0, height: "100%" }
-        }, Array.from({ length: 20 }, (_, i) => (new Date().getFullYear()+2 - i).toString()).map(y =>
-          /*#__PURE__*/React.createElement("option", { key: y, value: y }, y)
-        )),
-        /*#__PURE__*/React.createElement("div", { style: { ...st.input, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 500, fontSize: 13, pointerEvents: "none", userSelect: "none" } },
-          regYear
-        )
-      ),
-      /*#__PURE__*/React.createElement("button", {
-        onClick: () => setRegYear(y => String(parseInt(y)+1)),
-        style: { ...st.btn, padding: "7px 14px", fontSize: 16, flexShrink: 0 }
-      }, "\u203a")
-    )
-  ),
-  recent.length > 0 && /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      background: C.surface,
+      border: `1px solid ${C.border}`,
+      borderRadius: 8,
+      overflow: "hidden"
+    }
+  }, [["all", "Todo"], ["day", "Día"], ["week", "Semana"], ["month", "Mes"]].map(([id, lbl]) => /*#__PURE__*/React.createElement("button", {
+    key: id,
+    onClick: () => setRegPeriod(id),
+    style: {
+      flex: 1,
+      border: "none",
+      padding: "8px 4px",
+      fontSize: 12,
+      cursor: "pointer",
+      background: regPeriod === id ? C.accent : C.btnBg,
+      color: regPeriod === id ? C.bg : C.text,
+      fontWeight: regPeriod === id ? 500 : 400
+    }
+  }, lbl))), regPeriod === "day" && /*#__PURE__*/React.createElement("input", {
+    type: "date",
+    value: regDate,
+    onChange: e => setRegDate(e.target.value),
+    style: {
+      ...st.input,
+      colorScheme: C.bg === "#141414" ? "dark" : "light",
+      color: C.text
+    }
+  }), regPeriod === "week" && /*#__PURE__*/React.createElement("input", {
+    type: "date",
+    value: regWeek,
+    onChange: e => setRegWeek(e.target.value),
+    style: {
+      ...st.input,
+      colorScheme: C.bg === "#141414" ? "dark" : "light",
+      color: C.text
+    }
+  }), regPeriod === "month" && /*#__PURE__*/React.createElement("input", {
+    type: "month",
+    value: regMonth,
+    onChange: e => setRegMonth(e.target.value),
+    style: {
+      ...st.input,
+      colorScheme: C.bg === "#141414" ? "dark" : "light",
+      color: C.text
+    }
+  })), recent.length > 0 && /*#__PURE__*/React.createElement("div", {
     style: st.card
   }, /*#__PURE__*/React.createElement("div", {
-    style: { fontSize: 11, color: C.muted, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 14 }
+    style: {
+      fontSize: 11,
+      color: C.muted,
+      textTransform: "uppercase",
+      letterSpacing: "0.05em",
+      marginBottom: 14
+    }
   }, sub === "expense" ? "Gastos" : "Ingresos", " \xB7 ", recent.length, " registro", recent.length !== 1 ? "s" : ""), recent.map(t => {
     const s2 = S.subcategories?.find(x => x.id === t.subcategoryId);
     const cat = S.categories.find(x => x.id === t.categoryId);
@@ -1306,111 +1196,6 @@ function Registro({
     }, "No")));
   })));
 }
-function PieChart({ title, items, dcId, currencies }) {
-  const [hovered, setHovered] = React.useState(null);
-  const total = items.reduce((s, x) => s + x.value, 0);
-  if (total === 0) {
-    return /*#__PURE__*/React.createElement("div", {
-      style: { ...st.card, padding: "20px 24px" }
-    },
-      /*#__PURE__*/React.createElement("div", { style: { fontSize: 11, color: C.muted, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 } }, title),
-      /*#__PURE__*/React.createElement("div", { style: { fontSize: 13, color: C.muted, textAlign: "center", padding: "20px 0" } }, "Sin datos en este período")
-    );
-  }
-  // Build SVG pie slices
-  const cx = 80, cy = 80, r = 70, ri = 38;
-  let cumAngle = -Math.PI / 2;
-  const slices = items.map((item, i) => {
-    const pct = item.value / total;
-    const angle = pct * 2 * Math.PI;
-    const x1 = cx + r * Math.cos(cumAngle);
-    const y1 = cy + r * Math.sin(cumAngle);
-    const x1i = cx + ri * Math.cos(cumAngle);
-    const y1i = cy + ri * Math.sin(cumAngle);
-    cumAngle += angle;
-    const x2 = cx + r * Math.cos(cumAngle);
-    const y2 = cy + r * Math.sin(cumAngle);
-    const x2i = cx + ri * Math.cos(cumAngle);
-    const y2i = cy + ri * Math.sin(cumAngle);
-    const large = angle > Math.PI ? 1 : 0;
-    const midAngle = cumAngle - angle / 2;
-    const d = [
-      `M ${x1i} ${y1i}`,
-      `L ${x1} ${y1}`,
-      `A ${r} ${r} 0 ${large} 1 ${x2} ${y2}`,
-      `L ${x2i} ${y2i}`,
-      `A ${ri} ${ri} 0 ${large} 0 ${x1i} ${y1i}`,
-      "Z"
-    ].join(" ");
-    return { ...item, d, pct, midAngle, i };
-  });
-  const hov = hovered !== null ? slices[hovered] : null;
-  return /*#__PURE__*/React.createElement("div", {
-    style: { ...st.card, padding: "20px 24px" }
-  },
-    /*#__PURE__*/React.createElement("div", { style: { fontSize: 11, color: C.muted, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 16 } }, title),
-    /*#__PURE__*/React.createElement("div", { style: { display: "flex", gap: 20, alignItems: "center", flexWrap: "wrap" } },
-      /*#__PURE__*/React.createElement("div", { style: { position: "relative", flexShrink: 0 } },
-        /*#__PURE__*/React.createElement("svg", { width: 160, height: 160, viewBox: "0 0 160 160", style: { display: "block" } },
-          slices.map((s, i) =>
-            /*#__PURE__*/React.createElement("path", {
-              key: s.cat?.id || i,
-              d: s.d,
-              fill: s.color,
-              opacity: hovered === null || hovered === i ? 1 : 0.45,
-              stroke: C.surface,
-              strokeWidth: 1.5,
-              style: { cursor: "pointer", transition: "opacity 0.15s" },
-              onMouseEnter: () => setHovered(i),
-              onMouseLeave: () => setHovered(null),
-              onClick: () => setHovered(v => v === i ? null : i)
-            })
-          )
-        ),
-        /*#__PURE__*/React.createElement("div", {
-          style: {
-            position: "absolute", top: 0, left: 0, width: 160, height: 160,
-            display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-            pointerEvents: "none", textAlign: "center"
-          }
-        },
-          hov ? /*#__PURE__*/React.createElement(React.Fragment, null,
-            /*#__PURE__*/React.createElement("div", { style: { fontSize: 20, marginBottom: 2 } }, hov.cat?.icon || "·"),
-            /*#__PURE__*/React.createElement("div", { style: { fontSize: 13, fontWeight: 600, color: hov.color, maxWidth: 70, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, hov.cat?.name || hov.label),
-            /*#__PURE__*/React.createElement("div", { style: { fontSize: 12, color: C.muted } }, (hov.pct * 100).toFixed(1) + "%")
-          ) : /*#__PURE__*/React.createElement(React.Fragment, null,
-            /*#__PURE__*/React.createElement("div", { style: { fontSize: 11, color: C.muted } }, items.length + " categ."),
-            /*#__PURE__*/React.createElement("div", { style: { fontSize: 11, color: C.muted, marginTop: 2 } }, fmt(total, dcId, currencies))
-          )
-        )
-      ),
-      /*#__PURE__*/React.createElement("div", { style: { flex: 1, minWidth: 120, display: "flex", flexDirection: "column", gap: 7 } },
-        slices.map((s, i) =>
-          /*#__PURE__*/React.createElement("div", {
-            key: s.cat?.id || i,
-            onMouseEnter: () => setHovered(i),
-            onMouseLeave: () => setHovered(null),
-            onClick: () => setHovered(v => v === i ? null : i),
-            style: {
-              display: "flex", alignItems: "center", gap: 8, cursor: "pointer",
-              opacity: hovered === null || hovered === i ? 1 : 0.45,
-              transition: "opacity 0.15s"
-            }
-          },
-            /*#__PURE__*/React.createElement("span", { style: { width: 10, height: 10, borderRadius: "50%", background: s.color, flexShrink: 0 } }),
-            /*#__PURE__*/React.createElement("span", { style: { flex: 1, fontSize: 12, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
-              s.cat?.icon, " ", s.cat?.name || s.label
-            ),
-            /*#__PURE__*/React.createElement("span", { style: { fontSize: 12, fontWeight: 600, color: s.color, flexShrink: 0 } },
-              (s.pct * 100).toFixed(1) + "%"
-            )
-          )
-        )
-      )
-    )
-  );
-}
-
 function Panel({
   S,
   dc,
@@ -1418,10 +1203,13 @@ function Panel({
   accBalIn,
   totalBal
 }) {
-  const [period, setPeriod] = React.useState("day");
+  const [period, setPeriod] = React.useState("month");
   const now = new Date();
   const dcId = dc.id;
-  const isExcl = t => S.accounts.find(a => a.id === t.accountId)?.excludeBalance;
+  const isExcl = t => {
+    const a = S.accounts.find(x => x.id === t.accountId);
+    return a?.excludeBalance || a?.isInvestment;
+  };
   const cv = t => {
     const a = S.accounts.find(x => x.id === t.accountId);
     return a ? cvt(t.amount, a.currencyId, dcId, S.currencies) : t.amount;
@@ -1448,9 +1236,8 @@ function Panel({
       mon.setDate(d.getDate() - day + 1);
       const sun = new Date(mon);
       sun.setDate(mon.getDate() + 6);
-      const fmtLocal = x => `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,"0")}-${String(x.getDate()).padStart(2,"0")}`;
-      const from = fmtLocal(mon);
-      const to = fmtLocal(sun);
+      const from = mon.toISOString().split("T")[0];
+      const to = sun.toISOString().split("T")[0];
       return {
         from,
         to,
@@ -1482,16 +1269,30 @@ function Panel({
   const tot = totalBal(dcId);
 
   // Budgets
-  // Pie chart data
-  const expItems = S.categories.filter(c => !c.archived && c.type === "expense").map(cat => {
-    const val = S.transactions.filter(t => inRange(t) && t.categoryId === cat.id && t.type === "expense" && !isExcl(t)).reduce((s, t) => s + cv(t), 0);
-    return { cat, color: cat.color, value: val, label: cat.name };
-  }).filter(x => x.value > 0).sort((a, b) => b.value - a.value);
-
-  const incItems = S.categories.filter(c => !c.archived && c.type === "income").map(cat => {
-    const val = S.transactions.filter(t => inRange(t) && t.categoryId === cat.id && t.type === "income" && !isExcl(t)).reduce((s, t) => s + cv(t), 0);
-    return { cat, color: cat.color, value: val, label: cat.name };
-  }).filter(x => x.value > 0).sort((a, b) => b.value - a.value);
+  const mKey = selMonth;
+  const yKey = selYear;
+  const budgetRows = S.budgets.map(b => {
+    const cat = S.categories.find(c => c.id === b.categoryId);
+    if (!cat) return null;
+    const bcId = b.currencyId || dcId;
+    const spent = S.transactions.filter(t => t.categoryId === b.categoryId && t.type === "expense" && (b.period === "monthly" ? t.date.startsWith(mKey) : t.date.startsWith(yKey))).reduce((s, t) => {
+      const a = S.accounts.find(x => x.id === t.accountId);
+      return s + (a ? cvt(t.amount, a.currencyId, bcId, S.currencies) : t.amount);
+    }, 0);
+    const pct = Math.min(100, spent / b.amount * 100);
+    const over = spent > b.amount;
+    const barColor = over ? C.expense : pct >= 80 ? "#c47c1a" : C.green;
+    return {
+      b,
+      cat,
+      bcId,
+      spent,
+      pct,
+      over,
+      barColor
+    };
+  }).filter(Boolean);
+  const recent = [...S.transactions].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 6);
   const cs = `color-scheme:${C.bg === "#141414" ? "dark" : "light"}`;
   const dateInputStyle = {
     ...st.input,
@@ -1529,87 +1330,101 @@ function Panel({
       ...st.card,
       padding: "12px 16px"
     }
-  }, period === "day" && /*#__PURE__*/React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8 } },
-    /*#__PURE__*/React.createElement("button", {
-      onClick: () => { const d = new Date(selDay+"T12:00:00"); d.setDate(d.getDate()-1); setSelDay(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`); },
-      style: { ...st.btn, padding: "7px 14px", fontSize: 16, flexShrink: 0 }
-    }, "\u2039"),
-    /*#__PURE__*/React.createElement("div", { style: { flex: 1, position: "relative" } },
-      /*#__PURE__*/React.createElement("input", {
-        type: "date", value: selDay, onChange: e => setSelDay(e.target.value),
-        style: { ...dateInputStyle, position: "absolute", inset: 0, opacity: 0, cursor: "pointer", zIndex: 2, padding: 0, margin: 0 }
-      }),
-      /*#__PURE__*/React.createElement("div", { style: { ...st.input, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 500, fontSize: 13, pointerEvents: "none", userSelect: "none" } },
-        (() => { const [y,m,d] = selDay.split("-").map(Number); const names=["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"]; return `${d} ${names[m-1]} ${y}`; })()
-      )
-    ),
-    /*#__PURE__*/React.createElement("button", {
-      onClick: () => { const d = new Date(selDay+"T12:00:00"); d.setDate(d.getDate()+1); setSelDay(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`); },
-      style: { ...st.btn, padding: "7px 14px", fontSize: 16, flexShrink: 0 }
-    }, "\u203a")
-  ), period === "week" && /*#__PURE__*/React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8 } },
-    /*#__PURE__*/React.createElement("button", {
-      onClick: () => { const d = new Date(selWeek+"T12:00:00"); d.setDate(d.getDate()-7); setSelWeek(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`); },
-      style: { ...st.btn, padding: "7px 14px", fontSize: 16, flexShrink: 0 }
-    }, "\u2039"),
-    /*#__PURE__*/React.createElement("div", { style: { flex: 1, position: "relative" } },
-      /*#__PURE__*/React.createElement("input", {
-        type: "date", value: selWeek, onChange: e => setSelWeek(e.target.value),
-        style: { ...dateInputStyle, position: "absolute", inset: 0, opacity: 0, cursor: "pointer", zIndex: 2, padding: 0, margin: 0 }
-      }),
-      /*#__PURE__*/React.createElement("div", { style: { ...st.input, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 500, fontSize: 13, pointerEvents: "none", userSelect: "none" } },
-        (() => {
-          const d = new Date(selWeek+"T12:00:00"); const day = d.getDay()||7;
-          const mon = new Date(d); mon.setDate(d.getDate()-day+1);
-          const sun = new Date(mon); sun.setDate(mon.getDate()+6);
-          const f = x => `${x.getDate()}/${x.getMonth()+1}`;
-          return `${f(mon)} – ${f(sun)}`;
-        })()
-      )
-    ),
-    /*#__PURE__*/React.createElement("button", {
-      onClick: () => { const d = new Date(selWeek+"T12:00:00"); d.setDate(d.getDate()+7); setSelWeek(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`); },
-      style: { ...st.btn, padding: "7px 14px", fontSize: 16, flexShrink: 0 }
-    }, "\u203a")
-  ), period === "month" && /*#__PURE__*/React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8 } },
-    /*#__PURE__*/React.createElement("button", {
-      onClick: () => { const [y,m] = selMonth.split("-").map(Number); const d = new Date(y,m-2,1); setSelMonth(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`); },
-      style: { ...st.btn, padding: "7px 14px", fontSize: 16, flexShrink: 0 }
-    }, "\u2039"),
-    /*#__PURE__*/React.createElement("div", { style: { flex: 1, position: "relative" } },
-      /*#__PURE__*/React.createElement("input", {
-        type: "month", value: selMonth, onChange: e => setSelMonth(e.target.value),
-        style: { ...dateInputStyle, position: "absolute", inset: 0, opacity: 0, cursor: "pointer", zIndex: 2, padding: 0, margin: 0 }
-      }),
-      /*#__PURE__*/React.createElement("div", { style: { ...st.input, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 500, fontSize: 13, pointerEvents: "none", userSelect: "none" } },
-        (() => { const [y,m] = selMonth.split("-").map(Number); const names=["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"]; return `${names[m-1]} ${y}`; })()
-      )
-    ),
-    /*#__PURE__*/React.createElement("button", {
-      onClick: () => { const [y,m] = selMonth.split("-").map(Number); const d = new Date(y,m,1); setSelMonth(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`); },
-      style: { ...st.btn, padding: "7px 14px", fontSize: 16, flexShrink: 0 }
-    }, "\u203a")
-  ), period === "year" && /*#__PURE__*/React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8 } },
-    /*#__PURE__*/React.createElement("button", {
-      onClick: () => setSelYear(y => String(parseInt(y)-1)),
-      style: { ...st.btn, padding: "7px 14px", fontSize: 16, flexShrink: 0 }
-    }, "\u2039"),
-    /*#__PURE__*/React.createElement("div", { style: { flex: 1, position: "relative" } },
-      /*#__PURE__*/React.createElement("select", {
-        value: selYear, onChange: e => setSelYear(e.target.value),
-        style: { ...st.select, position: "absolute", inset: 0, opacity: 0, cursor: "pointer", zIndex: 2, padding: 0, margin: 0, height: "100%" }
-      }, Array.from({ length: 20 }, (_, i) => (new Date().getFullYear()+2-i).toString()).map(y =>
-        /*#__PURE__*/React.createElement("option", { key: y, value: y }, y)
-      )),
-      /*#__PURE__*/React.createElement("div", { style: { ...st.input, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 500, fontSize: 13, pointerEvents: "none", userSelect: "none" } },
-        selYear
-      )
-    ),
-    /*#__PURE__*/React.createElement("button", {
-      onClick: () => setSelYear(y => String(parseInt(y)+1)),
-      style: { ...st.btn, padding: "7px 14px", fontSize: 16, flexShrink: 0 }
-    }, "\u203a")
-  )), /*#__PURE__*/React.createElement("div", {
+  }, period === "day" && /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      alignItems: "center",
+      gap: 10
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 12,
+      color: C.muted,
+      flexShrink: 0
+    }
+  }, "D\xEDa:"), /*#__PURE__*/React.createElement("input", {
+    type: "date",
+    value: selDay,
+    onChange: e => setSelDay(e.target.value),
+    style: {
+      ...dateInputStyle,
+      flex: 1,
+      maxWidth: 180
+    }
+  })), period === "week" && /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      alignItems: "center",
+      gap: 10,
+      flexWrap: "wrap"
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 12,
+      color: C.muted,
+      flexShrink: 0
+    }
+  }, "Semana del:"), /*#__PURE__*/React.createElement("input", {
+    type: "date",
+    value: selWeek,
+    onChange: e => setSelWeek(e.target.value),
+    style: {
+      ...dateInputStyle,
+      flex: 1,
+      maxWidth: 180
+    }
+  }), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 11,
+      color: C.muted
+    }
+  }, label)), period === "month" && /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      alignItems: "center",
+      gap: 10
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 12,
+      color: C.muted,
+      flexShrink: 0
+    }
+  }, "Mes:"), /*#__PURE__*/React.createElement("input", {
+    type: "month",
+    value: selMonth,
+    onChange: e => setSelMonth(e.target.value),
+    style: {
+      ...dateInputStyle,
+      flex: 1,
+      maxWidth: 180
+    }
+  })), period === "year" && /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      alignItems: "center",
+      gap: 10
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 12,
+      color: C.muted,
+      flexShrink: 0
+    }
+  }, "A\xF1o:"), /*#__PURE__*/React.createElement("select", {
+    value: selYear,
+    onChange: e => setSelYear(e.target.value),
+    style: {
+      ...st.select,
+      flex: 1,
+      maxWidth: 120
+    }
+  }, Array.from({
+    length: 10
+  }, (_, i) => (new Date().getFullYear() - i).toString()).map(y => /*#__PURE__*/React.createElement("option", {
+    key: y,
+    value: y
+  }, y))))), /*#__PURE__*/React.createElement("div", {
     style: {
       ...st.card,
       padding: 24
@@ -1670,10 +1485,77 @@ function Panel({
       fontWeight: 500,
       color: k.c
     }
-  }, fmt(k.v, dcId, S.currencies)))))),
-  /*#__PURE__*/React.createElement(PieChart, { title: "Gastos por categoría · " + label, items: expItems, dcId: dcId, currencies: S.currencies }),
-  /*#__PURE__*/React.createElement(PieChart, { title: "Ingresos por categoría · " + label, items: incItems, dcId: dcId, currencies: S.currencies }),
-  /*#__PURE__*/React.createElement("div", {
+  }, fmt(k.v, dcId, S.currencies)))))), budgetRows.length > 0 && /*#__PURE__*/React.createElement("div", {
+    style: st.card
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11,
+      color: C.muted,
+      textTransform: "uppercase",
+      letterSpacing: "0.04em",
+      marginBottom: 14
+    }
+  }, "Presupuestos \xB7 mes actual"), budgetRows.map(({
+    b,
+    cat,
+    bcId,
+    spent,
+    pct,
+    over,
+    barColor
+  }) => /*#__PURE__*/React.createElement("div", {
+    key: b.id,
+    style: {
+      marginBottom: 14
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      alignItems: "center",
+      gap: 8,
+      marginBottom: 6
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 14
+    }
+  }, cat.icon), /*#__PURE__*/React.createElement("span", {
+    style: {
+      flex: 1,
+      fontSize: 13
+    }
+  }, cat.name), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 12,
+      fontWeight: 600,
+      color: barColor
+    }
+  }, pct.toFixed(0), "%"), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 12,
+      color: over ? C.red : C.muted
+    }
+  }, fmt(spent, bcId, S.currencies), " / ", fmt(b.amount, bcId, S.currencies))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      height: 4,
+      borderRadius: 4,
+      background: "#e8e6e1"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      height: "100%",
+      borderRadius: 4,
+      width: `${pct}%`,
+      background: barColor,
+      transition: "width 0.3s"
+    }
+  })), over && /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11,
+      color: C.red,
+      marginTop: 4
+    }
+  }, "\u26A0 Superado en ", fmt(spent - b.amount, bcId, S.currencies))))), /*#__PURE__*/React.createElement("div", {
     style: {
       display: "grid",
       gridTemplateColumns: "repeat(auto-fit,minmax(280px,1fr))",
@@ -1732,7 +1614,57 @@ function Panel({
         fontSize: 10,
         color: C.muted
       }
-    }, "≈", fmt(cv2, dcId, S.currencies))));
+    }, "\u2248", fmt(cv2, dcId, S.currencies))));
+  })), /*#__PURE__*/React.createElement("div", {
+    style: st.card
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11,
+      color: C.muted,
+      textTransform: "uppercase",
+      letterSpacing: "0.04em",
+      marginBottom: 14
+    }
+  }, "Recientes"), recent.map(t => {
+    const cat = S.categories.find(c => c.id === t.categoryId);
+    const s2 = S.subcategories?.find(x => x.id === t.subcategoryId);
+    const acc = S.accounts.find(a => a.id === t.accountId);
+    const cur = acc ? S.currencies.find(c => c.id === acc.currencyId) : null;
+    return /*#__PURE__*/React.createElement("div", {
+      key: t.id,
+      style: {
+        display: "flex",
+        alignItems: "center",
+        gap: 10,
+        padding: "9px 0",
+        borderBottom: "1px solid #e8e6e1"
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: st.dot(cat?.color || C.muted)
+    }), /*#__PURE__*/React.createElement("div", {
+      style: {
+        flex: 1,
+        minWidth: 0
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 13,
+        overflow: "hidden",
+        textOverflow: "ellipsis",
+        whiteSpace: "nowrap"
+      }
+    }, t.note || s2?.name || cat?.name || "—"), /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 10,
+        color: C.muted
+      }
+    }, fmtDate(t.date))), /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 13,
+        fontWeight: 500,
+        color: t.type === "income" ? C.green : C.expense
+      }
+    }, t.type === "income" ? "+" : "-", fmt(t.amount, cur?.id || "BOB", S.currencies)));
   }))));
 }
 function BalanceCard({
@@ -1747,16 +1679,17 @@ function BalanceCard({
 }) {
   const [editBal, setEditBal] = React.useState(false);
   const [balVal, setBalVal] = React.useState("");
-  const [confirmDel, setConfirmDel] = React.useState(false);
   const saveBal = () => {
     const n = parseFloat(balVal);
     if (isNaN(n)) return;
-    const diff = n - raw;
+    const diff = n - raw; // difference between desired and current balance
     if (diff === 0) {
       setEditBal(false);
       return;
     }
+    // Create an adjustment transaction (income if positive, expense if negative)
     upd(s => {
+      // Remove old initialBalance if any
       const acc = s.accounts.find(x => x.id === a.id);
       if (acc) acc.initialBalance = 0;
       s.transactions.push({
@@ -1772,19 +1705,6 @@ function BalanceCard({
     });
     setEditBal(false);
   };
-  const archiveAccount = () => {
-    upd(s => {
-      const acc = s.accounts.find(x => x.id === a.id);
-      if (acc) acc.archived = true;
-    });
-  };
-  const deleteAccount = () => {
-    upd(s => {
-      s.accounts = s.accounts.filter(x => x.id !== a.id);
-      s.transactions = s.transactions.filter(t => t.accountId !== a.id);
-      s.transfers = s.transfers.filter(t => t.fromId !== a.id && t.toId !== a.id);
-    });
-  };
   return /*#__PURE__*/React.createElement("div", {
     style: {
       ...st.card,
@@ -1794,7 +1714,6 @@ function BalanceCard({
     style: {
       display: "flex",
       justifyContent: "space-between",
-      alignItems: "flex-start",
       marginBottom: 10
     }
   }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
@@ -1807,13 +1726,7 @@ function BalanceCard({
       fontSize: 11,
       color: C.muted
     }
-  }, cur.icon, " ", cur.code, a.excludeBalance ? " · excluida" : "")), /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: "flex",
-      gap: 4,
-      alignItems: "center"
-    }
-  }, /*#__PURE__*/React.createElement("button", {
+  }, cur.icon, " ", cur.code, a.excludeBalance ? " · excluida" : "")), /*#__PURE__*/React.createElement("button", {
     onClick: () => setModal({
       type: "editAccount",
       account: a
@@ -1823,77 +1736,7 @@ function BalanceCard({
       padding: "3px 8px",
       fontSize: 12
     }
-  }, "\u270F\uFE0E"), /*#__PURE__*/React.createElement("button", {
-    onClick: archiveAccount,
-    title: "Archivar cuenta",
-    style: {
-      border: "none",
-      background: "none",
-      cursor: "pointer",
-      fontSize: 14,
-      color: C.muted,
-      padding: "3px 5px"
-    }
-  }, "\uD83D\uDCC1"), /*#__PURE__*/React.createElement("button", {
-    onClick: () => setConfirmDel(o => !o),
-    title: "Eliminar cuenta",
-    style: {
-      border: "none",
-      background: "none",
-      cursor: "pointer",
-      fontSize: 14,
-      color: C.red,
-      padding: "3px 5px"
-    }
-  }, "\uD83D\uDDD1"))),
-  confirmDel && /*#__PURE__*/React.createElement("div", {
-    style: {
-      marginBottom: 10,
-      padding: "10px 12px",
-      background: "#fdf2f2",
-      border: `1px solid ${C.red}33`,
-      borderRadius: 8,
-      display: "flex",
-      flexDirection: "column",
-      gap: 8
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontSize: 12,
-      color: C.red,
-      fontWeight: 500
-    }
-  }, "\u26A0 Eliminar \"", a.name, "\" y todos sus registros?"), /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: "flex",
-      gap: 6
-    }
-  }, /*#__PURE__*/React.createElement("button", {
-    onClick: deleteAccount,
-    style: {
-      flex: 1,
-      border: "none",
-      background: C.red,
-      color: "#fff",
-      borderRadius: 6,
-      padding: "6px",
-      fontSize: 12,
-      cursor: "pointer",
-      fontWeight: 600
-    }
-  }, "S\xED, eliminar"), /*#__PURE__*/React.createElement("button", {
-    onClick: () => setConfirmDel(false),
-    style: {
-      flex: 1,
-      border: `1px solid ${C.border}`,
-      background: "none",
-      borderRadius: 6,
-      padding: "6px",
-      fontSize: 12,
-      cursor: "pointer",
-      color: C.text
-    }
-  }, "Cancelar"))), editBal ? /*#__PURE__*/React.createElement("div", {
+  }, "\u270F\uFE0E")), editBal ? /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
       gap: 6,
@@ -2996,8 +2839,6 @@ function Presupuesto({
   setModal,
   dc
 }) {
-  const [editId, setEditId] = React.useState(null);
-  const [editForm, setEditForm] = React.useState(null);
   const now = new Date();
   const m = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
   const y = now.getFullYear().toString();
@@ -3006,24 +2847,21 @@ function Presupuesto({
   wStart.setDate(now.getDate() - wDay + 1);
   const wFrom = wStart.toISOString().split("T")[0];
   const wTo = now.toISOString().split("T")[0];
-  const startEdit = b => {
-    setEditId(b.id);
-    setEditForm({ categoryId: b.categoryId, period: b.period, amount: String(b.amount), currencyId: b.currencyId || dc.id });
-  };
-  const saveEdit = () => {
-    upd(s => {
-      const x = s.budgets.find(x => x.id === editId);
-      if (x) { x.categoryId = editForm.categoryId; x.period = editForm.period; x.amount = parseFloat(editForm.amount); x.currencyId = editForm.currencyId; }
-    });
-    setEditId(null); setEditForm(null);
-  };
-  const fe = k => v => setEditForm(p => ({ ...p, [k]: v }));
   return /*#__PURE__*/React.createElement("div", {
-    style: { display: "flex", flexDirection: "column", gap: 12 }
+    style: {
+      display: "flex",
+      flexDirection: "column",
+      gap: 12
+    }
   }, /*#__PURE__*/React.createElement("div", {
-    style: { display: "flex", justifyContent: "flex-end" }
+    style: {
+      display: "flex",
+      justifyContent: "flex-end"
+    }
   }, /*#__PURE__*/React.createElement("button", {
-    onClick: () => setModal({ type: "newBudget" }),
+    onClick: () => setModal({
+      type: "newBudget"
+    }),
     style: st.btnPri
   }, "+ Presupuesto")), S.budgets.map(b => {
     const cat = S.categories.find(c => c.id === b.categoryId);
@@ -3035,104 +2873,137 @@ function Presupuesto({
       return s + (a ? cvt(t.amount, a.currencyId, bcId, S.currencies) : t.amount);
     }, 0);
     const remaining = b.amount - spent;
-    const pct = Math.min(100, spent / b.amount * 100), over = spent > b.amount;
+    const pct = Math.min(100, spent / b.amount * 100),
+      over = spent > b.amount;
     const barColor = over ? C.expense : pct >= 80 ? "#c47c1a" : C.green;
-    const isEditing = editId === b.id;
     return /*#__PURE__*/React.createElement("div", {
       key: b.id,
-      style: { ...st.card, borderLeft: `3px solid ${cat.color}`, padding: "16px 20px" }
-    },
-      // Header row
-      /*#__PURE__*/React.createElement("div", {
-        style: { display: "flex", alignItems: "center", marginBottom: isEditing ? 16 : 14 }
-      },
-        /*#__PURE__*/React.createElement("span", {
-          style: { width: 28, height: 28, borderRadius: "50%", background: cat.color + "22", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, marginRight: 10, flexShrink: 0 }
-        }, cat.icon),
-        /*#__PURE__*/React.createElement("div", { style: { flex: 1 } },
-          /*#__PURE__*/React.createElement("div", { style: { fontWeight: 500, fontSize: 14 } }, cat.name),
-          /*#__PURE__*/React.createElement("div", { style: { fontSize: 11, color: C.muted } },
-            b.period === "weekly" ? "Semanal" : b.period === "monthly" ? "Mensual" : "Anual", " \xB7 ", cur?.code)
-        ),
-        !isEditing && /*#__PURE__*/React.createElement("div", { style: { fontSize: 12, fontWeight: 600, color: barColor, marginRight: 10 } }, pct.toFixed(0), "%"),
-        /*#__PURE__*/React.createElement("button", {
-          onClick: () => isEditing ? (setEditId(null), setEditForm(null)) : startEdit(b),
-          style: { border: "none", background: "none", cursor: "pointer", fontSize: 13, color: isEditing ? C.accent : C.muted, lineHeight: 1, marginRight: 6 }
-        }, isEditing ? "✕" : "✏︎"),
-        /*#__PURE__*/React.createElement("button", {
-          onClick: () => upd(s => { s.budgets = s.budgets.filter(x => x.id !== b.id); }),
-          style: { border: "none", background: "none", cursor: "pointer", fontSize: 13, color: C.red, lineHeight: 1 }
-        }, "\u2715")
-      ),
-      // Edit form
-      isEditing && editForm ? /*#__PURE__*/React.createElement("div", {
-        style: { display: "flex", flexDirection: "column", gap: 10, marginBottom: 16, padding: "14px", background: C.bg, borderRadius: 8 }
-      },
-        /*#__PURE__*/React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 } },
-          /*#__PURE__*/React.createElement("div", null,
-            /*#__PURE__*/React.createElement("label", { style: st.label }, "Categoría"),
-            /*#__PURE__*/React.createElement("select", {
-              value: editForm.categoryId, onChange: e => fe("categoryId")(e.target.value), style: st.select
-            }, S.categories.filter(c => !c.archived && c.type === "expense").map(c =>
-              /*#__PURE__*/React.createElement("option", { key: c.id, value: c.id }, c.name)
-            ))
-          ),
-          /*#__PURE__*/React.createElement("div", null,
-            /*#__PURE__*/React.createElement("label", { style: st.label }, "Período"),
-            /*#__PURE__*/React.createElement("select", {
-              value: editForm.period, onChange: e => fe("period")(e.target.value), style: st.select
-            },
-              /*#__PURE__*/React.createElement("option", { value: "weekly" }, "Semanal"),
-              /*#__PURE__*/React.createElement("option", { value: "monthly" }, "Mensual"),
-              /*#__PURE__*/React.createElement("option", { value: "annual" }, "Anual")
-            )
-          )
-        ),
-        /*#__PURE__*/React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 } },
-          /*#__PURE__*/React.createElement("div", null,
-            /*#__PURE__*/React.createElement("label", { style: st.label }, "Monto límite"),
-            /*#__PURE__*/React.createElement("input", {
-              type: "number", value: editForm.amount, onChange: e => fe("amount")(e.target.value),
-              placeholder: "0.00", style: st.input, step: "any"
-            })
-          ),
-          /*#__PURE__*/React.createElement("div", null,
-            /*#__PURE__*/React.createElement("label", { style: st.label }, "Divisa"),
-            /*#__PURE__*/React.createElement("select", {
-              value: editForm.currencyId, onChange: e => fe("currencyId")(e.target.value), style: st.select
-            }, S.currencies.map(c =>
-              /*#__PURE__*/React.createElement("option", { key: c.id, value: c.id }, c.icon, " ", c.code)
-            ))
-          )
-        ),
-        /*#__PURE__*/React.createElement("button", {
-          onClick: saveEdit,
-          disabled: !editForm.categoryId || !editForm.amount || parseFloat(editForm.amount) <= 0,
-          style: { ...st.btnPri, opacity: (!editForm.amount || parseFloat(editForm.amount) <= 0) ? 0.4 : 1 }
-        }, "Guardar cambios")
-      ) : null,
-      // Stats & bar
-      !isEditing && /*#__PURE__*/React.createElement(React.Fragment, null,
-        /*#__PURE__*/React.createElement("div", {
-          style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 12 }
-        },
-          /*#__PURE__*/React.createElement("div", { style: { background: C.surface, borderRadius: 6, padding: "10px 14px", border: `1px solid ${C.border}` } },
-            /*#__PURE__*/React.createElement("div", { style: { fontSize: 10, color: C.muted, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 } }, "Presupuestado"),
-            /*#__PURE__*/React.createElement("div", { style: { fontSize: 17, fontWeight: 500, color: C.text } }, fmt(b.amount, bcId, S.currencies))
-          ),
-          /*#__PURE__*/React.createElement("div", { style: { background: over ? "#fdf2f2" : C.surface, borderRadius: 6, padding: "10px 14px", border: over ? `1px solid ${C.red}22` : `1px solid ${C.border}` } },
-            /*#__PURE__*/React.createElement("div", { style: { fontSize: 10, color: over ? C.red : C.muted, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 } }, "Gastado"),
-            /*#__PURE__*/React.createElement("div", { style: { fontSize: 17, fontWeight: 500, color: over ? C.red : C.text } }, fmt(spent, bcId, S.currencies))
-          )
-        ),
-        /*#__PURE__*/React.createElement("div", { style: { height: 5, borderRadius: 5, background: "#e8e6e1" } },
-          /*#__PURE__*/React.createElement("div", { style: { height: "100%", borderRadius: 5, width: `${pct}%`, background: barColor, transition: "width 0.3s" } })
-        ),
-        /*#__PURE__*/React.createElement("div", {
-          style: { marginTop: 7, fontSize: 11, color: over ? C.red : remaining <= 0.1 * b.amount ? "#c47c1a" : C.muted }
-        }, over ? `⚠ Superado en ${fmt(spent - b.amount, bcId, S.currencies)}` : `Disponible: ${fmt(remaining, bcId, S.currencies)}`)
-      )
-    );
+      style: {
+        ...st.card,
+        borderLeft: `3px solid ${cat.color}`,
+        padding: "16px 20px"
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: "flex",
+        alignItems: "center",
+        marginBottom: 14
+      }
+    }, /*#__PURE__*/React.createElement("span", {
+      style: {
+        width: 28,
+        height: 28,
+        borderRadius: "50%",
+        background: cat.color + "22",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        fontSize: 15,
+        marginRight: 10,
+        flexShrink: 0
+      }
+    }, cat.icon), /*#__PURE__*/React.createElement("div", {
+      style: {
+        flex: 1
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontWeight: 500,
+        fontSize: 14
+      }
+    }, cat.name), /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 11,
+        color: C.muted
+      }
+    }, b.period === "weekly" ? "Semanal" : b.period === "monthly" ? "Mensual" : "Anual", " \xB7 ", cur?.code)), /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 12,
+        fontWeight: 600,
+        color: barColor,
+        marginRight: 10
+      }
+    }, pct.toFixed(0), "%"), /*#__PURE__*/React.createElement("button", {
+      onClick: () => upd(s => {
+        s.budgets = s.budgets.filter(x => x.id !== b.id);
+      }),
+      style: {
+        border: "none",
+        background: "none",
+        cursor: "pointer",
+        fontSize: 13,
+        color: C.muted,
+        lineHeight: 1
+      }
+    }, "\u2715")), /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: "grid",
+        gridTemplateColumns: "1fr 1fr",
+        gap: 8,
+        marginBottom: 12
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        background: C.bg,
+        borderRadius: 6,
+        padding: "10px 14px"
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 10,
+        color: C.muted,
+        textTransform: "uppercase",
+        letterSpacing: "0.05em",
+        marginBottom: 4
+      }
+    }, "Presupuestado"), /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 17,
+        fontWeight: 500,
+        color: C.text
+      }
+    }, fmt(b.amount, bcId, S.currencies))), /*#__PURE__*/React.createElement("div", {
+      style: {
+        background: over ? "#fdf2f2" : C.bg,
+        borderRadius: 6,
+        padding: "10px 14px",
+        border: over ? `1px solid ${C.red}22` : "1px solid transparent"
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 10,
+        color: over ? C.red : C.muted,
+        textTransform: "uppercase",
+        letterSpacing: "0.05em",
+        marginBottom: 4
+      }
+    }, "Gastado"), /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 17,
+        fontWeight: 500,
+        color: over ? C.red : C.text
+      }
+    }, fmt(spent, bcId, S.currencies)))), /*#__PURE__*/React.createElement("div", {
+      style: {
+        height: 5,
+        borderRadius: 5,
+        background: "#e8e6e1"
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        height: "100%",
+        borderRadius: 5,
+        width: `${pct}%`,
+        background: barColor,
+        transition: "width 0.3s"
+      }
+    })), /*#__PURE__*/React.createElement("div", {
+      style: {
+        marginTop: 7,
+        fontSize: 11,
+        color: over ? C.red : remaining <= 0.1 * b.amount ? "#c47c1a" : C.muted
+      }
+    }, over ? `⚠ Superado en ${fmt(spent - b.amount, bcId, S.currencies)}` : `Disponible: ${fmt(remaining, bcId, S.currencies)}`));
   }));
 }
 function Reportes({
@@ -3222,8 +3093,7 @@ function Reportes({
     style: {
       ...st.select,
       width: 100,
-      marginLeft: "auto",
-      colorScheme: C.bg === "#141414" ? "dark" : "light"
+      marginLeft: "auto"
     }
   }, years.map(y => /*#__PURE__*/React.createElement("option", {
     key: y,
@@ -3251,8 +3121,7 @@ function Reportes({
     onChange: e => setY1(e.target.value),
     style: {
       ...st.select,
-      width: 90,
-      colorScheme: C.bg === "#141414" ? "dark" : "light"
+      width: 90
     }
   }, years.map(y => /*#__PURE__*/React.createElement("option", {
     key: y,
@@ -3266,8 +3135,7 @@ function Reportes({
     onChange: e => setY2(e.target.value),
     style: {
       ...st.select,
-      width: 90,
-      colorScheme: C.bg === "#141414" ? "dark" : "light"
+      width: 90
     }
   }, years.map(y => /*#__PURE__*/React.createElement("option", {
     key: y,
@@ -3326,8 +3194,7 @@ function CatReport({
     style: {
       ...st.select,
       width: 100,
-      marginLeft: "auto",
-      colorScheme: C.bg === "#141414" ? "dark" : "light"
+      marginLeft: "auto"
     }
   }, years.map(y => /*#__PURE__*/React.createElement("option", {
     key: y,
@@ -3615,32 +3482,55 @@ function BarChart({
   }, "\u2715 cerrar")), sd && /*#__PURE__*/React.createElement("div", {
     style: {
       marginBottom: 16,
-      padding: "12px 14px",
+      padding: "12px 16px",
       background: C.bg,
       borderRadius: 8,
-      border: "1px solid #e8e6e1"
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: { fontWeight: 600, fontSize: 13, marginBottom: 10 }
-  }, MONTHS_FULL[sel]), /*#__PURE__*/React.createElement("div", {
-    style: {
+      border: "1px solid #e8e6e1",
       display: "grid",
-      gridTemplateColumns: "repeat(3, minmax(0,1fr))",
-      gap: "4px 8px"
+      gridTemplateColumns: "auto 1fr 1fr 1fr",
+      gap: "6px 18px",
+      alignItems: "center"
     }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: { fontSize: 10, color: C.muted, textTransform: "uppercase", letterSpacing: "0.04em" }
-  }, "Ingresos"), /*#__PURE__*/React.createElement("div", {
-    style: { fontSize: 10, color: C.muted, textTransform: "uppercase", letterSpacing: "0.04em" }
-  }, "Egresos"), /*#__PURE__*/React.createElement("div", {
-    style: { fontSize: 10, color: C.muted, textTransform: "uppercase", letterSpacing: "0.04em" }
-  }, "Neto"), /*#__PURE__*/React.createElement("div", {
-    style: { fontSize: 13, fontWeight: 600, color: C.green, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }
-  }, fmt(sd.inc, dcId, currencies)), /*#__PURE__*/React.createElement("div", {
-    style: { fontSize: 13, fontWeight: 600, color: C.red, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }
-  }, fmt(sd.exp, dcId, currencies)), /*#__PURE__*/React.createElement("div", {
-    style: { fontSize: 13, fontWeight: 600, color: sd.net >= 0 ? C.blue : C.red, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }
-  }, sd.net >= 0 ? "+" : "", fmt(sd.net, dcId, currencies)))), /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontWeight: 600,
+      fontSize: 13,
+      gridRow: "1/3"
+    }
+  }, MONTHS_FULL[sel]), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 11,
+      color: C.muted
+    }
+  }, "Ingresos"), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 11,
+      color: C.muted
+    }
+  }, "Egresos"), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 11,
+      color: C.muted
+    }
+  }, "Neto"), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 14,
+      fontWeight: 600,
+      color: C.green
+    }
+  }, fmt(sd.inc, dcId, currencies)), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 14,
+      fontWeight: 600,
+      color: C.red
+    }
+  }, fmt(sd.exp, dcId, currencies)), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 14,
+      fontWeight: 600,
+      color: sd.net >= 0 ? C.blue : C.red
+    }
+  }, sd.net >= 0 ? "+" : "", fmt(sd.net, dcId, currencies))), /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
       gap: 3,
@@ -4062,45 +3952,7 @@ function CompareChart({
     }
   }, "Toca un mes para comparar ", y1, " vs ", y2));
 }
-function InvMovRow({ t, S, accs, upd }) {
-  const [confirmDel, setConfirmDel] = React.useState(false);
-  const s2 = S.subcategories?.find(x => x.id === t.subcategoryId);
-  const cat = S.categories.find(c => c.id === t.categoryId);
-  const acc = S.accounts.find(a => a.id === t.accountId);
-  const cur = acc ? S.currencies.find(c => c.id === acc.currencyId) : null;
-  return /*#__PURE__*/React.createElement("div", null,
-    /*#__PURE__*/React.createElement("div", {
-      style: { display: "flex", alignItems: "center", gap: 10, padding: "9px 0", borderBottom: confirmDel ? "none" : `1px solid ${C.border}` }
-    },
-      /*#__PURE__*/React.createElement("span", { style: { fontSize: 15 } }, s2?.icon || cat?.icon || "💰"),
-      /*#__PURE__*/React.createElement("div", { style: { flex: 1, minWidth: 0 } },
-        /*#__PURE__*/React.createElement("div", { style: { fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, t.note || s2?.name || cat?.name || "—"),
-        /*#__PURE__*/React.createElement("div", { style: { fontSize: 11, color: C.muted } }, fmtDate(t.date), accs.length > 1 ? ` · ${acc?.name || ""}` : "")
-      ),
-      /*#__PURE__*/React.createElement("div", { style: { fontWeight: 500, fontSize: 13, color: t.type === "income" ? C.green : C.expense } },
-        t.type === "income" ? "+" : "-", fmt(t.amount, cur?.id || "BOB", S.currencies)
-      ),
-      /*#__PURE__*/React.createElement("button", {
-        onClick: () => setConfirmDel(o => !o),
-        style: { border: "none", background: "none", cursor: "pointer", fontSize: 14, color: C.red, padding: "2px 4px", flexShrink: 0 }
-      }, "\uD83D\uDDD1")
-    ),
-    confirmDel && /*#__PURE__*/React.createElement("div", {
-      style: { display: "flex", alignItems: "center", gap: 8, padding: "8px 0", borderBottom: `1px solid ${C.border}` }
-    },
-      /*#__PURE__*/React.createElement("span", { style: { flex: 1, fontSize: 12, color: C.red } }, "\xBFEliminar este movimiento?"),
-      /*#__PURE__*/React.createElement("button", {
-        onClick: () => { upd(s => { s.transactions = s.transactions.filter(x => x.id !== t.id); }); },
-        style: { border: "none", background: C.red, color: "#fff", borderRadius: 6, padding: "5px 14px", fontSize: 12, cursor: "pointer", fontWeight: 600 }
-      }, "S\xED"),
-      /*#__PURE__*/React.createElement("button", {
-        onClick: () => setConfirmDel(false),
-        style: { border: `1px solid ${C.border}`, background: "none", borderRadius: 6, padding: "5px 14px", fontSize: 12, cursor: "pointer", color: C.text }
-      }, "No")
-    )
-  );
-}
-function InvStats({ S, dc, accBal, accBalIn, accs, label, color, upd }) {
+function InvStats({ S, dc, accBal, accBalIn, accs, label, color }) {
   const dcId = dc.id;
   const cv = t => {
     const a = S.accounts.find(x => x.id === t.accountId);
@@ -4208,7 +4060,22 @@ function InvStats({ S, dc, accBal, accBalIn, accs, label, color, upd }) {
     // Movimientos recientes
     recent.length > 0 && /*#__PURE__*/React.createElement("div", { style: st.card },
       /*#__PURE__*/React.createElement("div", { style: { fontSize: 11, color: C.muted, textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 12 } }, "Movimientos recientes"),
-      recent.map(t => /*#__PURE__*/React.createElement(InvMovRow, { key: t.id, t, S, accs, upd }))
+      recent.map(t => {
+        const s2 = S.subcategories?.find(x => x.id === t.subcategoryId);
+        const cat = S.categories.find(c => c.id === t.categoryId);
+        const acc = S.accounts.find(a => a.id === t.accountId);
+        const cur = acc ? S.currencies.find(c => c.id === acc.currencyId) : null;
+        return /*#__PURE__*/React.createElement("div", { key: t.id, style: { display: "flex", alignItems: "center", gap: 10, padding: "9px 0", borderBottom: `1px solid ${C.border}` } },
+          /*#__PURE__*/React.createElement("span", { style: { fontSize: 15 } }, s2?.icon || cat?.icon || "💰"),
+          /*#__PURE__*/React.createElement("div", { style: { flex: 1, minWidth: 0 } },
+            /*#__PURE__*/React.createElement("div", { style: { fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, t.note || s2?.name || cat?.name || "—"),
+            /*#__PURE__*/React.createElement("div", { style: { fontSize: 11, color: C.muted } }, fmtDate(t.date), accs.length > 1 ? ` · ${acc?.name || ""}` : "")
+          ),
+          /*#__PURE__*/React.createElement("div", { style: { fontWeight: 500, fontSize: 13, color: t.type === "income" ? C.green : C.expense } },
+            t.type === "income" ? "+" : "-", fmt(t.amount, cur?.id || "BOB", S.currencies)
+          )
+        );
+      })
     )
   );
 }
@@ -4377,7 +4244,7 @@ function Inversiones({
     ),
     // Stats + gráfica
     /*#__PURE__*/React.createElement(InvStats, {
-      S, dc, accBal, accBalIn, upd,
+      S, dc, accBal, accBalIn,
       accs: activeAccs,
       label: selAcc ? selAcc.name : "Todas",
       color: selAcc ? selAcc.color : C.blue
@@ -4389,35 +4256,14 @@ function Divisas({
   upd,
   setModal
 }) {
-  const [showArchived, setShowArchived] = React.useState(false);
-  const [confirmDel, setConfirmDel] = React.useState(null);
-  const allCurs = S.currencies;
-  const activeCurs = allCurs.filter(c => !c.archived);
-  const archivedCurs = allCurs.filter(c => c.archived);
-  const curs = activeCurs;
+  const curs = S.currencies;
   const [calcAmt, setCalcAmt] = React.useState("1");
   const [calcFrom, setCalcFrom] = React.useState("USD");
-  const [calcTo, setCalcTo] = React.useState(activeCurs[0]?.id || "BOB");
+  const [calcTo, setCalcTo] = React.useState(curs[0]?.id || "BOB");
   const parsed = parseFloat(calcAmt) || 0;
-  const result = parsed > 0 ? cvt(parsed, calcFrom, calcTo, allCurs) : null;
-  const toCur = allCurs.find(c => c.id === calcTo);
+  const result = parsed > 0 ? cvt(parsed, calcFrom, calcTo, curs) : null;
+  const toCur = curs.find(c => c.id === calcTo);
   const dec = toCur?.type === "crypto" ? result && result < 0.01 ? 8 : 4 : 2;
-
-  const archiveCur = id => upd(s => {
-    const c = s.currencies.find(x => x.id === id);
-    if (c) c.archived = true;
-  });
-  const restoreCur = id => upd(s => {
-    const c = s.currencies.find(x => x.id === id);
-    if (c) c.archived = false;
-  });
-  const deleteCur = id => {
-    upd(s => {
-      s.currencies = s.currencies.filter(c => c.id !== id);
-    });
-    setConfirmDel(null);
-  };
-
   return /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
@@ -4427,18 +4273,9 @@ function Divisas({
   }, /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
-      justifyContent: "flex-end",
-      gap: 8
+      justifyContent: "flex-end"
     }
-  }, archivedCurs.length > 0 && /*#__PURE__*/React.createElement("button", {
-    onClick: () => setShowArchived(o => !o),
-    style: {
-      ...st.btn,
-      background: showArchived ? C.accent : "none",
-      color: showArchived ? C.bg : C.text,
-      fontSize: 12
-    }
-  }, "\uD83D\uDCC1 Archivadas (", archivedCurs.length, ")"), /*#__PURE__*/React.createElement("button", {
+  }, /*#__PURE__*/React.createElement("button", {
     onClick: () => setModal({
       type: "newCurrency"
     }),
@@ -4452,14 +4289,13 @@ function Divisas({
       marginBottom: 16
     }
   }, "Cotizaciones relativas al d\xF3lar. Las nuevas divisas se buscan autom\xE1ticamente."), curs.map(cur => /*#__PURE__*/React.createElement("div", {
-    key: cur.id
-  }, /*#__PURE__*/React.createElement("div", {
+    key: cur.id,
     style: {
       display: "flex",
       alignItems: "center",
       gap: 14,
       padding: "13px 0",
-      borderBottom: `1px solid ${C.border}`
+      borderBottom: "1px solid #e8e6e1"
     }
   }, /*#__PURE__*/React.createElement("div", {
     style: st.dot(cur.color)
@@ -4500,158 +4336,18 @@ function Divisas({
   }, "1 USD ="), /*#__PURE__*/React.createElement(RateEditor, {
     cur: cur,
     upd: upd
-  })), /*#__PURE__*/React.createElement("button", {
-    onClick: () => archiveCur(cur.id),
-    title: "Archivar",
+  })), !["BOB", "USD", "USDT", "BTC"].includes(cur.id) && /*#__PURE__*/React.createElement("button", {
+    onClick: () => upd(s => {
+      s.currencies = s.currencies.filter(c => c.id !== cur.id);
+    }),
     style: {
       border: "none",
       background: "none",
       cursor: "pointer",
       color: C.muted,
-      fontSize: 14,
-      padding: "2px 4px"
+      fontSize: 14
     }
-  }, "\uD83D\uDCC1"), /*#__PURE__*/React.createElement("button", {
-    onClick: () => setConfirmDel(confirmDel === cur.id ? null : cur.id),
-    title: "Eliminar",
-    style: {
-      border: "none",
-      background: "none",
-      cursor: "pointer",
-      color: C.red,
-      fontSize: 14,
-      padding: "2px 4px"
-    }
-  }, "\uD83D\uDDD1")), confirmDel === cur.id && /*#__PURE__*/React.createElement("div", {
-    style: {
-      padding: "10px 12px",
-      marginBottom: 8,
-      background: "#fdf2f2",
-      border: `1px solid ${C.red}33`,
-      borderRadius: 8,
-      display: "flex",
-      alignItems: "center",
-      gap: 8
-    }
-  }, /*#__PURE__*/React.createElement("span", {
-    style: {
-      flex: 1,
-      fontSize: 12,
-      color: C.red
-    }
-  }, "\xBFEliminar \"", cur.name, "\"? Las cuentas que la usan quedar\xE1n sin divisa."), /*#__PURE__*/React.createElement("button", {
-    onClick: () => deleteCur(cur.id),
-    style: {
-      border: "none",
-      background: C.red,
-      color: "#fff",
-      borderRadius: 6,
-      padding: "5px 14px",
-      fontSize: 12,
-      cursor: "pointer",
-      fontWeight: 600
-    }
-  }, "S\xED"), /*#__PURE__*/React.createElement("button", {
-    onClick: () => setConfirmDel(null),
-    style: {
-      border: `1px solid ${C.border}`,
-      background: "none",
-      borderRadius: 6,
-      padding: "5px 14px",
-      fontSize: 12,
-      cursor: "pointer",
-      color: C.text
-    }
-  }, "No")))), showArchived && archivedCurs.length > 0 && /*#__PURE__*/React.createElement("div", {
-    style: {
-      marginTop: 8,
-      paddingTop: 8,
-      borderTop: `1px solid ${C.border}`
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontSize: 11,
-      color: C.muted,
-      textTransform: "uppercase",
-      letterSpacing: "0.05em",
-      marginBottom: 8
-    }
-  }, "Archivadas"), archivedCurs.map(cur => /*#__PURE__*/React.createElement("div", {
-    key: cur.id
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: "flex",
-      alignItems: "center",
-      gap: 10,
-      padding: "9px 0",
-      borderBottom: confirmDel === cur.id ? "none" : `1px solid ${C.border}`,
-      opacity: 0.6
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: st.dot(cur.color)
-  }), /*#__PURE__*/React.createElement("div", {
-    style: {
-      flex: 1,
-      fontSize: 13,
-      color: C.muted
-    }
-  }, cur.name, " (", cur.code, ")"), /*#__PURE__*/React.createElement("button", {
-    onClick: () => restoreCur(cur.id),
-    style: {
-      ...st.btn,
-      fontSize: 12,
-      padding: "4px 12px"
-    }
-  }, "Restaurar"), /*#__PURE__*/React.createElement("button", {
-    onClick: () => setConfirmDel(confirmDel === cur.id ? null : cur.id),
-    style: {
-      border: "none",
-      background: "none",
-      cursor: "pointer",
-      color: C.red,
-      fontSize: 14,
-      padding: "2px 4px"
-    }
-  }, "\uD83D\uDDD1")), confirmDel === cur.id && /*#__PURE__*/React.createElement("div", {
-    style: {
-      marginBottom: 6,
-      padding: "8px 10px",
-      background: "#fdf2f2",
-      borderRadius: 6,
-      display: "flex",
-      gap: 6,
-      alignItems: "center",
-      borderBottom: `1px solid ${C.border}`
-    }
-  }, /*#__PURE__*/React.createElement("span", {
-    style: {
-      fontSize: 11,
-      color: C.red,
-      flex: 1
-    }
-  }, "\xBFEliminar definitivamente?"), /*#__PURE__*/React.createElement("button", {
-    onClick: () => deleteCur(cur.id),
-    style: {
-      border: "none",
-      background: C.red,
-      color: "#fff",
-      borderRadius: 5,
-      padding: "3px 10px",
-      fontSize: 11,
-      cursor: "pointer",
-      fontWeight: 600
-    }
-  }, "S\xED"), /*#__PURE__*/React.createElement("button", {
-    onClick: () => setConfirmDel(null),
-    style: {
-      border: `1px solid ${C.border}`,
-      background: "none",
-      borderRadius: 5,
-      padding: "3px 10px",
-      fontSize: 11,
-      cursor: "pointer"
-    }
-  }, "No"))))), /*#__PURE__*/React.createElement("div", {
+  }, "\u2715")))), /*#__PURE__*/React.createElement("div", {
     style: st.card
   }, /*#__PURE__*/React.createElement("div", {
     style: {
@@ -4776,7 +4472,7 @@ function Divisas({
       minimumFractionDigits: d,
       maximumFractionDigits: d
     })));
-  })))));
+  }))));
 }
 function RateEditor({
   cur,
