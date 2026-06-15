@@ -1421,7 +1421,7 @@ function Panel({
   const [period, setPeriod] = React.useState("day");
   const now = new Date();
   const dcId = dc.id;
-  const isExcl = t => S.accounts.find(a => a.id === t.accountId)?.excludeBalance;
+  const isExcl = t => { const acc = S.accounts.find(a => a.id === t.accountId); return acc?.excludeBalance || acc?.isInvestment; };
   const cv = t => {
     const a = S.accounts.find(x => x.id === t.accountId);
     return a ? cvt(t.amount, a.currencyId, dcId, S.currencies) : t.amount;
@@ -3146,7 +3146,7 @@ function Reportes({
   const [to, setTo] = React.useState(today());
   const dcId = dc.id;
   const years = [...new Set(S.transactions.map(t => t.date.slice(0, 4)))].sort().reverse();
-  const isExcl = t => S.accounts.find(a => a.id === t.accountId)?.excludeBalance;
+  const isExcl = t => { const acc = S.accounts.find(a => a.id === t.accountId); return acc?.excludeBalance || acc?.isInvestment; };
   const cv = t => {
     const a = S.accounts.find(x => x.id === t.accountId);
     return a ? cvt(t.amount, a.currencyId, dcId, S.currencies) : t.amount;
