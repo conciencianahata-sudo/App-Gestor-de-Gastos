@@ -3306,73 +3306,178 @@ function CatReport({
   dcId,
   S
 }) {
-  const items = catData(`${y1}-01-01`, `${y1}-12-31`);
+  const [m1, setM1] = React.useState("");
+  const [expCat, setExpCat] = React.useState(null);
+  const from = m1 ? `${y1}-${m1}-01` : `${y1}-01-01`;
+  const to = m1 ? `${y1}-${m1}-31` : `${y1}-12-31`;
+  const items = catData(from, to);
   const tot = items.reduce((s, x) => s + x.total, 0);
+  const periodLabel = m1 ? `${MONTHS_FULL[parseInt(m1, 10) - 1]} ${y1}` : y1;
+  const getCatTxs = catId => S.transactions.filter(t => t.categoryId === catId && t.type === "expense" && t.date >= from && t.date <= to).sort((a, b) => b.date.localeCompare(a.date));
   return /*#__PURE__*/React.createElement("div", {
     style: st.card
   }, /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
       alignItems: "center",
-      marginBottom: 20
+      gap: 8,
+      marginBottom: 20,
+      flexWrap: "wrap"
     }
   }, /*#__PURE__*/React.createElement("span", {
     style: {
       fontWeight: 500
     }
-  }, "Egresos por categor\xEDa"), /*#__PURE__*/React.createElement("select", {
+  }, "Egresos por categor\xEDa"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 6,
+      marginLeft: "auto"
+    }
+  }, /*#__PURE__*/React.createElement("select", {
+    value: m1,
+    onChange: e => {
+      setM1(e.target.value);
+      setExpCat(null);
+    },
+    style: {
+      ...st.select,
+      width: 140,
+      colorScheme: C.bg === "#141414" ? "dark" : "light"
+    }
+  }, /*#__PURE__*/React.createElement("option", {
+    value: ""
+  }, "Todo el a\xF1o"), MONTHS_FULL.map((mn, i) => /*#__PURE__*/React.createElement("option", {
+    key: mn,
+    value: String(i + 1).padStart(2, "0")
+  }, mn))), /*#__PURE__*/React.createElement("select", {
     value: y1,
-    onChange: e => setY1(e.target.value),
+    onChange: e => {
+      setY1(e.target.value);
+      setExpCat(null);
+    },
     style: {
       ...st.select,
       width: 100,
-      marginLeft: "auto",
       colorScheme: C.bg === "#141414" ? "dark" : "light"
     }
   }, years.map(y => /*#__PURE__*/React.createElement("option", {
     key: y,
     value: y
-  }, y)))), items.map(({
+  }, y))))), items.length === 0 && /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 13,
+      color: C.muted,
+      textAlign: "center",
+      padding: "12px 0"
+    }
+  }, "Sin gastos en este per\xEDodo"), items.map(({
     cat,
     total
-  }) => /*#__PURE__*/React.createElement("div", {
-    key: cat.id,
-    style: {
-      marginBottom: 14
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: "flex",
-      justifyContent: "space-between",
-      fontSize: 13,
-      marginBottom: 5
-    }
-  }, /*#__PURE__*/React.createElement("span", {
-    style: {
-      display: "flex",
-      alignItems: "center",
-      gap: 6
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: st.dot(cat.color)
-  }), cat.name), /*#__PURE__*/React.createElement("span", null, fmt(total, dcId, S.currencies), " ", /*#__PURE__*/React.createElement("span", {
-    style: {
-      color: C.muted
-    }
-  }, "(", tot > 0 ? (total / tot * 100).toFixed(0) : 0, "%)"))), /*#__PURE__*/React.createElement("div", {
-    style: {
-      height: 3,
-      borderRadius: 3,
-      background: "#e8e6e1"
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      height: "100%",
-      borderRadius: 3,
-      background: cat.color,
-      width: tot > 0 ? `${total / tot * 100}%` : "0%"
-    }
-  })))));
+  }) => {
+    const isExp = expCat === cat.id;
+    const txs = isExp ? getCatTxs(cat.id) : [];
+    return /*#__PURE__*/React.createElement("div", {
+      key: cat.id,
+      style: {
+        marginBottom: 14
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      onClick: () => setExpCat(v => v === cat.id ? null : cat.id),
+      style: {
+        display: "flex",
+        justifyContent: "space-between",
+        fontSize: 13,
+        marginBottom: 5,
+        cursor: "pointer"
+      }
+    }, /*#__PURE__*/React.createElement("span", {
+      style: {
+        display: "flex",
+        alignItems: "center",
+        gap: 6
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: st.dot(cat.color)
+    }), cat.name, /*#__PURE__*/React.createElement("span", {
+      style: {
+        color: C.muted,
+        fontSize: 10
+      }
+    }, isExp ? "\u25B2" : "\u25BC")), /*#__PURE__*/React.createElement("span", null, fmt(total, dcId, S.currencies), " ", /*#__PURE__*/React.createElement("span", {
+      style: {
+        color: C.muted
+      }
+    }, "(", tot > 0 ? (total / tot * 100).toFixed(0) : 0, "%)"))), /*#__PURE__*/React.createElement("div", {
+      style: {
+        height: 3,
+        borderRadius: 3,
+        background: "#e8e6e1"
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        height: "100%",
+        borderRadius: 3,
+        background: cat.color,
+        width: tot > 0 ? `${total / tot * 100}%` : "0%"
+      }
+    })), isExp && /*#__PURE__*/React.createElement("div", {
+      style: {
+        marginTop: 10,
+        padding: "6px 10px",
+        background: C.bg,
+        borderRadius: 8
+      }
+    }, txs.length === 0 ? /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 12,
+        color: C.muted,
+        padding: "6px 0"
+      }
+    }, "Sin gastos en ", periodLabel, ".") : txs.map(t => {
+      const s2 = S.subcategories?.find(x => x.id === t.subcategoryId);
+      const acc = S.accounts.find(a => a.id === t.accountId);
+      const cur = acc ? S.currencies.find(c => c.id === acc.currencyId) : null;
+      return /*#__PURE__*/React.createElement("div", {
+        key: t.id,
+        style: {
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          padding: "7px 0",
+          borderBottom: `1px solid ${C.border}`
+        }
+      }, /*#__PURE__*/React.createElement("span", {
+        style: {
+          fontSize: 14
+        }
+      }, s2?.icon || cat.icon), /*#__PURE__*/React.createElement("div", {
+        style: {
+          flex: 1,
+          minWidth: 0
+        }
+      }, /*#__PURE__*/React.createElement("div", {
+        style: {
+          fontSize: 12,
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          whiteSpace: "nowrap"
+        }
+      }, t.note || s2?.name || cat.name), /*#__PURE__*/React.createElement("div", {
+        style: {
+          fontSize: 10,
+          color: C.muted
+        }
+      }, fmtDate(t.date), " \xB7 ", acc?.name || "\u2014")), /*#__PURE__*/React.createElement("div", {
+        style: {
+          fontSize: 12,
+          fontWeight: 500,
+          color: C.expense,
+          flexShrink: 0
+        }
+      }, "-", fmt(t.amount, cur?.id || "BOB", S.currencies)));
+    })));
+  }));
 }
 function CustomReport({
   S,
