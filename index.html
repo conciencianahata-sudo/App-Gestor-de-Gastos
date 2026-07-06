@@ -1377,7 +1377,7 @@ function PieChart({ title, items, dcId, currencies }) {
           hov ? /*#__PURE__*/React.createElement(React.Fragment, null,
             /*#__PURE__*/React.createElement("div", { style: { fontSize: 20, marginBottom: 2 } }, hov.cat?.icon || "·"),
             /*#__PURE__*/React.createElement("div", { style: { fontSize: 13, fontWeight: 600, color: hov.color, maxWidth: 70, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, hov.cat?.name || hov.label),
-            /*#__PURE__*/React.createElement("div", { style: { fontSize: 12, color: C.muted } }, (hov.pct * 100).toFixed(1) + "%")
+            /*#__PURE__*/React.createElement("div", { style: { fontSize: 12, color: hov.color, fontWeight: 500 } }, fmt(hov.value, dcId, currencies))
           ) : /*#__PURE__*/React.createElement(React.Fragment, null,
             /*#__PURE__*/React.createElement("div", { style: { fontSize: 11, color: C.muted } }, items.length + " categ."),
             /*#__PURE__*/React.createElement("div", { style: { fontSize: 11, color: C.muted, marginTop: 2 } }, fmt(total, dcId, currencies))
@@ -1421,7 +1421,7 @@ function Panel({
   const [period, setPeriod] = React.useState("day");
   const now = new Date();
   const dcId = dc.id;
-  const isExcl = t => { const a = S.accounts.find(x => x.id === t.accountId); return a?.excludeBalance || a?.isInvestment; };
+  const isExcl = t => S.accounts.find(a => a.id === t.accountId)?.excludeBalance;
   const cv = t => {
     const a = S.accounts.find(x => x.id === t.accountId);
     return a ? cvt(t.amount, a.currencyId, dcId, S.currencies) : t.amount;
