@@ -1421,7 +1421,13 @@ function Panel({
   const [period, setPeriod] = React.useState("day");
   const now = new Date();
   const dcId = dc.id;
-  const isExcl = t => S.accounts.find(a => a.id === t.accountId)?.excludeBalance;
+  // Mismo criterio que "Registro": excluye solo cuentas de inversión y ajustes de saldo.
+  // excludeBalance NO se usa aquí porque esa marca es solo para el cálculo del balance total,
+  // no para los totales de ingresos/egresos del período.
+  const isExcl = t => {
+    const acc = S.accounts.find(a => a.id === t.accountId);
+    return acc?.isInvestment || t.note === "Ajuste de saldo";
+  };
   const cv = t => {
     const a = S.accounts.find(x => x.id === t.accountId);
     return a ? cvt(t.amount, a.currencyId, dcId, S.currencies) : t.amount;
@@ -3146,7 +3152,12 @@ function Reportes({
   const [to, setTo] = React.useState(today());
   const dcId = dc.id;
   const years = [...new Set(S.transactions.map(t => t.date.slice(0, 4)))].sort().reverse();
-  const isExcl = t => S.accounts.find(a => a.id === t.accountId)?.excludeBalance;
+  // Mismo criterio que "Registro"/"Panel": excluye solo cuentas de inversión y ajustes de saldo.
+  // excludeBalance NO se usa aquí porque esa marca es solo para el cálculo del balance total.
+  const isExcl = t => {
+    const acc = S.accounts.find(a => a.id === t.accountId);
+    return acc?.isInvestment || t.note === "Ajuste de saldo";
+  };
   const cv = t => {
     const a = S.accounts.find(x => x.id === t.accountId);
     return a ? cvt(t.amount, a.currencyId, dcId, S.currencies) : t.amount;
@@ -3166,7 +3177,7 @@ function Reportes({
     };
   });
   const catData = (f, t) => S.categories.filter(c => !c.archived && c.type === "expense").map(cat => {
-    let txs = S.transactions.filter(x => x.categoryId === cat.id && x.type === "expense");
+    let txs = S.transactions.filter(x => x.categoryId === cat.id && x.type === "expense" && !isExcl(x));
     if (f) txs = txs.filter(x => x.date >= f);
     if (t) txs = txs.filter(x => x.date <= t);
     return {
@@ -3285,7 +3296,8 @@ function Reportes({
     setY1: setY1,
     years: years,
     dcId: dcId,
-    S: S
+    S: S,
+    isExcl: isExcl
   }), mode === "custom" && /*#__PURE__*/React.createElement(CustomReport, {
     S: S,
     from: from,
@@ -3304,7 +3316,8 @@ function CatReport({
   setY1,
   years,
   dcId,
-  S
+  S,
+  isExcl
 }) {
   const [m1, setM1] = React.useState("");
   const [expCat, setExpCat] = React.useState(null);
@@ -3313,7 +3326,7 @@ function CatReport({
   const items = catData(from, to);
   const tot = items.reduce((s, x) => s + x.total, 0);
   const periodLabel = m1 ? `${MONTHS_FULL[parseInt(m1, 10) - 1]} ${y1}` : y1;
-  const getCatTxs = catId => S.transactions.filter(t => t.categoryId === catId && t.type === "expense" && t.date >= from && t.date <= to).sort((a, b) => b.date.localeCompare(a.date));
+  const getCatTxs = catId => S.transactions.filter(t => t.categoryId === catId && t.type === "expense" && !isExcl(t) && t.date >= from && t.date <= to).sort((a, b) => b.date.localeCompare(a.date));
   return /*#__PURE__*/React.createElement("div", {
     style: st.card
   }, /*#__PURE__*/React.createElement("div", {
