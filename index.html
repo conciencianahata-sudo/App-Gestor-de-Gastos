@@ -4615,7 +4615,7 @@ function Divisas({
       color: C.muted,
       marginBottom: 4
     }
-  }, "1 USD ="), /*#__PURE__*/React.createElement(RateEditor, {
+  }, cur.type === "crypto" ? `1 ${cur.code} =` : "1 USD ="), /*#__PURE__*/React.createElement(RateEditor, {
     cur: cur,
     upd: upd
   })), /*#__PURE__*/React.createElement("button", {
@@ -4902,7 +4902,10 @@ function RateEditor({
 }) {
   const [edit, setEdit] = React.useState(false);
   const [val, setVal] = React.useState("");
-  const disp = (1 / cur.rateToUSD).toFixed(cur.type === "crypto" ? 2 : 4);
+  const isCrypto = cur.type === "crypto";
+  // Fiat: mostramos "1 USD = ? CODE" (rateToUSD es USD por unidad, así que invertimos).
+  // Cripto: mostramos "1 CODE = ? USD" directamente (rateToUSD YA es el precio en USD).
+  const disp = isCrypto ? cur.rateToUSD.toFixed(2) : (1 / cur.rateToUSD).toFixed(4);
   if (edit) {
     return /*#__PURE__*/React.createElement("div", {
       style: {
@@ -4924,7 +4927,7 @@ function RateEditor({
         const n = parseFloat(val);
         if (n > 0) upd(s => {
           const c = s.currencies.find(x => x.id === cur.id);
-          if (c) c.rateToUSD = 1 / n;
+          if (c) c.rateToUSD = isCrypto ? n : 1 / n;
         });
         setEdit(false);
       },
@@ -4950,7 +4953,7 @@ function RateEditor({
       fontSize: 13,
       padding: "4px 10px"
     }
-  }, disp, " ", cur.code, " \u270F\uFE0E");
+  }, disp, " ", isCrypto ? "USD" : cur.code, " \u270F\uFE0E");
 }
 function Ajustes({
   theme,
@@ -6081,7 +6084,7 @@ function CurrencyForm({
         ...form,
         id: form.code.toUpperCase(),
         code: form.code.toUpperCase(),
-        rateToUSD: 1 / n
+        rateToUSD: form.type === "crypto" ? n : 1 / n
       });
     });
     close();
@@ -6138,7 +6141,7 @@ function CurrencyForm({
     placeholder: "Euro",
     style: st.input
   })), /*#__PURE__*/React.createElement(FF, {
-    label: `Cotización · 1 USD = ? ${form.code || "divisa"}`
+    label: form.type === "crypto" ? `Cotización · 1 ${form.code || "CRIPTO"} = ? USD` : `Cotización · 1 USD = ? ${form.code || "divisa"}`
   }, /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
