@@ -2996,6 +2996,171 @@ function Categorias({
     }
   }, "Restaurar")))));
 }
+function getBudgetRange(period, offset) {
+  const now = new Date();
+  if (period === "weekly") {
+    const day = now.getDay() || 7;
+    const mon = new Date(now);
+    mon.setDate(now.getDate() - day + 1 + offset * 7);
+    const sun = new Date(mon);
+    sun.setDate(mon.getDate() + 6);
+    const fmtLocal = x => `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, "0")}-${String(x.getDate()).padStart(2, "0")}`;
+    const f = x => `${x.getDate()}/${x.getMonth() + 1}`;
+    return { from: fmtLocal(mon), to: fmtLocal(sun), label: `${f(mon)} – ${f(sun)}` };
+  }
+  if (period === "annual") {
+    const y = now.getFullYear() + offset;
+    return { from: `${y}-01-01`, to: `${y}-12-31`, label: String(y) };
+  }
+  const names = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+  const d = new Date(now.getFullYear(), now.getMonth() + offset, 1);
+  const mk = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  return { from: `${mk}-01`, to: `${mk}-31`, label: `${names[d.getMonth()]} ${d.getFullYear()}` };
+}
+function BudgetCard({
+  b,
+  S,
+  upd,
+  dc,
+  isEditing,
+  startEdit,
+  cancelEdit,
+  editForm,
+  fe,
+  saveEdit
+}) {
+  const [offset, setOffset] = React.useState(0);
+  React.useEffect(() => {
+    setOffset(0);
+  }, [b.period]);
+  const cat = S.categories.find(c => c.id === b.categoryId);
+  if (!cat) return null;
+  const bcId = b.currencyId || dc.id;
+  const cur = S.currencies.find(c => c.id === bcId);
+  const { from, to, label } = getBudgetRange(b.period, offset);
+  const spent = S.transactions.filter(t => t.categoryId === b.categoryId && t.type === "expense" && t.date >= from && t.date <= to).reduce((s, t) => {
+    const a = S.accounts.find(x => x.id === t.accountId);
+    return s + (a ? cvt(t.amount, a.currencyId, bcId, S.currencies) : t.amount);
+  }, 0);
+  const remaining = b.amount - spent;
+  const pct = Math.min(100, spent / b.amount * 100), over = spent > b.amount;
+  const barColor = over ? C.expense : pct >= 80 ? "#c47c1a" : C.green;
+  return /*#__PURE__*/React.createElement("div", {
+    style: { ...st.card, borderLeft: `3px solid ${cat.color}`, padding: "16px 20px" }
+  },
+    // Header row
+    /*#__PURE__*/React.createElement("div", {
+      style: { display: "flex", alignItems: "center", marginBottom: isEditing ? 16 : 14 }
+    },
+      /*#__PURE__*/React.createElement("span", {
+        style: { width: 28, height: 28, borderRadius: "50%", background: cat.color + "22", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, marginRight: 10, flexShrink: 0 }
+      }, cat.icon),
+      /*#__PURE__*/React.createElement("div", { style: { flex: 1 } },
+        /*#__PURE__*/React.createElement("div", { style: { fontWeight: 500, fontSize: 14 } }, cat.name),
+        /*#__PURE__*/React.createElement("div", { style: { fontSize: 11, color: C.muted } },
+          b.period === "weekly" ? "Semanal" : b.period === "monthly" ? "Mensual" : "Anual", " \xB7 ", cur?.code)
+      ),
+      !isEditing && /*#__PURE__*/React.createElement("div", { style: { fontSize: 12, fontWeight: 600, color: barColor, marginRight: 10 } }, pct.toFixed(0), "%"),
+      /*#__PURE__*/React.createElement("button", {
+        onClick: () => isEditing ? cancelEdit() : startEdit(b),
+        style: { border: "none", background: "none", cursor: "pointer", fontSize: 13, color: isEditing ? C.accent : C.muted, lineHeight: 1, marginRight: 6 }
+      }, isEditing ? "✕" : "✏︎"),
+      /*#__PURE__*/React.createElement("button", {
+        onClick: () => upd(s => { s.budgets = s.budgets.filter(x => x.id !== b.id); }),
+        style: { border: "none", background: "none", cursor: "pointer", fontSize: 13, color: C.red, lineHeight: 1 }
+      }, "\u2715")
+    ),
+    // Edit form
+    isEditing && editForm ? /*#__PURE__*/React.createElement("div", {
+      style: { display: "flex", flexDirection: "column", gap: 10, marginBottom: 16, padding: "14px", background: C.bg, borderRadius: 8 }
+    },
+      /*#__PURE__*/React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 } },
+        /*#__PURE__*/React.createElement("div", null,
+          /*#__PURE__*/React.createElement("label", { style: st.label }, "Categoría"),
+          /*#__PURE__*/React.createElement("select", {
+            value: editForm.categoryId, onChange: e => fe("categoryId")(e.target.value), style: st.select
+          }, S.categories.filter(c => !c.archived && c.type === "expense").map(c =>
+            /*#__PURE__*/React.createElement("option", { key: c.id, value: c.id }, c.name)
+          ))
+        ),
+        /*#__PURE__*/React.createElement("div", null,
+          /*#__PURE__*/React.createElement("label", { style: st.label }, "Período"),
+          /*#__PURE__*/React.createElement("select", {
+            value: editForm.period, onChange: e => fe("period")(e.target.value), style: st.select
+          },
+            /*#__PURE__*/React.createElement("option", { value: "weekly" }, "Semanal"),
+            /*#__PURE__*/React.createElement("option", { value: "monthly" }, "Mensual"),
+            /*#__PURE__*/React.createElement("option", { value: "annual" }, "Anual")
+          )
+        )
+      ),
+      /*#__PURE__*/React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 } },
+        /*#__PURE__*/React.createElement("div", null,
+          /*#__PURE__*/React.createElement("label", { style: st.label }, "Monto límite"),
+          /*#__PURE__*/React.createElement("input", {
+            type: "number", value: editForm.amount, onChange: e => fe("amount")(e.target.value),
+            placeholder: "0.00", style: st.input, step: "any"
+          })
+        ),
+        /*#__PURE__*/React.createElement("div", null,
+          /*#__PURE__*/React.createElement("label", { style: st.label }, "Divisa"),
+          /*#__PURE__*/React.createElement("select", {
+            value: editForm.currencyId, onChange: e => fe("currencyId")(e.target.value), style: st.select
+          }, S.currencies.map(c =>
+            /*#__PURE__*/React.createElement("option", { key: c.id, value: c.id }, c.icon, " ", c.code)
+          ))
+        )
+      ),
+      /*#__PURE__*/React.createElement("button", {
+        onClick: saveEdit,
+        disabled: !editForm.categoryId || !editForm.amount || parseFloat(editForm.amount) <= 0,
+        style: { ...st.btnPri, opacity: (!editForm.amount || parseFloat(editForm.amount) <= 0) ? 0.4 : 1 }
+      }, "Guardar cambios")
+    ) : null,
+    // Period navigator + Stats & bar
+    !isEditing && /*#__PURE__*/React.createElement(React.Fragment, null,
+      /*#__PURE__*/React.createElement("div", {
+        style: { display: "flex", alignItems: "center", gap: 6, marginBottom: 12 }
+      },
+        /*#__PURE__*/React.createElement("button", {
+          onClick: () => setOffset(o => o - 1),
+          style: { ...st.btn, padding: "4px 10px", fontSize: 14, flexShrink: 0 }
+        }, "\u2039"),
+        /*#__PURE__*/React.createElement("div", {
+          style: { flex: 1, textAlign: "center", fontSize: 12, fontWeight: 500, color: C.text }
+        }, label, offset === 0 && /*#__PURE__*/React.createElement("span", {
+          style: { color: C.muted, fontWeight: 400 }
+        }, " \xB7 actual")),
+        offset !== 0 && /*#__PURE__*/React.createElement("button", {
+          onClick: () => setOffset(0),
+          style: { ...st.btn, padding: "4px 8px", fontSize: 11, flexShrink: 0, color: C.muted }
+        }, "Hoy"),
+        /*#__PURE__*/React.createElement("button", {
+          onClick: () => setOffset(o => o + 1),
+          style: { ...st.btn, padding: "4px 10px", fontSize: 14, flexShrink: 0 }
+        }, "\u203a")
+      ),
+      /*#__PURE__*/React.createElement("div", {
+        style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 12 }
+      },
+        /*#__PURE__*/React.createElement("div", { style: { background: C.surface, borderRadius: 6, padding: "10px 14px", border: `1px solid ${C.border}` } },
+          /*#__PURE__*/React.createElement("div", { style: { fontSize: 10, color: C.muted, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 } }, "Presupuestado"),
+          /*#__PURE__*/React.createElement("div", { style: { fontSize: 17, fontWeight: 500, color: C.text } }, fmt(b.amount, bcId, S.currencies))
+        ),
+        /*#__PURE__*/React.createElement("div", { style: { background: over ? "#fdf2f2" : C.surface, borderRadius: 6, padding: "10px 14px", border: over ? `1px solid ${C.red}22` : `1px solid ${C.border}` } },
+          /*#__PURE__*/React.createElement("div", { style: { fontSize: 10, color: over ? C.red : C.muted, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 } }, "Gastado"),
+          /*#__PURE__*/React.createElement("div", { style: { fontSize: 17, fontWeight: 500, color: over ? C.red : C.text } }, fmt(spent, bcId, S.currencies))
+        )
+      ),
+      /*#__PURE__*/React.createElement("div", { style: { height: 5, borderRadius: 5, background: "#e8e6e1" } },
+        /*#__PURE__*/React.createElement("div", { style: { height: "100%", borderRadius: 5, width: `${pct}%`, background: barColor, transition: "width 0.3s" } })
+      ),
+      /*#__PURE__*/React.createElement("div", {
+        style: { marginTop: 7, fontSize: 11, color: over ? C.red : remaining <= 0.1 * b.amount ? "#c47c1a" : C.muted }
+      }, over ? `⚠ Superado en ${fmt(spent - b.amount, bcId, S.currencies)}` : `Disponible: ${fmt(remaining, bcId, S.currencies)}`)
+    )
+  );
+}
 function Presupuesto({
   S,
   upd,
@@ -3004,17 +3169,13 @@ function Presupuesto({
 }) {
   const [editId, setEditId] = React.useState(null);
   const [editForm, setEditForm] = React.useState(null);
-  const now = new Date();
-  const m = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-  const y = now.getFullYear().toString();
-  const wDay = now.getDay() || 7;
-  const wStart = new Date(now);
-  wStart.setDate(now.getDate() - wDay + 1);
-  const wFrom = wStart.toISOString().split("T")[0];
-  const wTo = now.toISOString().split("T")[0];
   const startEdit = b => {
     setEditId(b.id);
     setEditForm({ categoryId: b.categoryId, period: b.period, amount: String(b.amount), currencyId: b.currencyId || dc.id });
+  };
+  const cancelEdit = () => {
+    setEditId(null);
+    setEditForm(null);
   };
   const saveEdit = () => {
     upd(s => {
@@ -3031,118 +3192,23 @@ function Presupuesto({
   }, /*#__PURE__*/React.createElement("button", {
     onClick: () => setModal({ type: "newBudget" }),
     style: st.btnPri
-  }, "+ Presupuesto")), S.budgets.map(b => {
-    const cat = S.categories.find(c => c.id === b.categoryId);
-    if (!cat) return null;
-    const bcId = b.currencyId || dc.id;
-    const cur = S.currencies.find(c => c.id === bcId);
-    const spent = S.transactions.filter(t => t.categoryId === b.categoryId && t.type === "expense" && (b.period === "weekly" ? t.date >= wFrom && t.date <= wTo : b.period === "monthly" ? t.date.startsWith(m) : t.date.startsWith(y))).reduce((s, t) => {
-      const a = S.accounts.find(x => x.id === t.accountId);
-      return s + (a ? cvt(t.amount, a.currencyId, bcId, S.currencies) : t.amount);
-    }, 0);
-    const remaining = b.amount - spent;
-    const pct = Math.min(100, spent / b.amount * 100), over = spent > b.amount;
-    const barColor = over ? C.expense : pct >= 80 ? "#c47c1a" : C.green;
-    const isEditing = editId === b.id;
-    return /*#__PURE__*/React.createElement("div", {
-      key: b.id,
-      style: { ...st.card, borderLeft: `3px solid ${cat.color}`, padding: "16px 20px" }
-    },
-      // Header row
-      /*#__PURE__*/React.createElement("div", {
-        style: { display: "flex", alignItems: "center", marginBottom: isEditing ? 16 : 14 }
-      },
-        /*#__PURE__*/React.createElement("span", {
-          style: { width: 28, height: 28, borderRadius: "50%", background: cat.color + "22", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, marginRight: 10, flexShrink: 0 }
-        }, cat.icon),
-        /*#__PURE__*/React.createElement("div", { style: { flex: 1 } },
-          /*#__PURE__*/React.createElement("div", { style: { fontWeight: 500, fontSize: 14 } }, cat.name),
-          /*#__PURE__*/React.createElement("div", { style: { fontSize: 11, color: C.muted } },
-            b.period === "weekly" ? "Semanal" : b.period === "monthly" ? "Mensual" : "Anual", " \xB7 ", cur?.code)
-        ),
-        !isEditing && /*#__PURE__*/React.createElement("div", { style: { fontSize: 12, fontWeight: 600, color: barColor, marginRight: 10 } }, pct.toFixed(0), "%"),
-        /*#__PURE__*/React.createElement("button", {
-          onClick: () => isEditing ? (setEditId(null), setEditForm(null)) : startEdit(b),
-          style: { border: "none", background: "none", cursor: "pointer", fontSize: 13, color: isEditing ? C.accent : C.muted, lineHeight: 1, marginRight: 6 }
-        }, isEditing ? "✕" : "✏︎"),
-        /*#__PURE__*/React.createElement("button", {
-          onClick: () => upd(s => { s.budgets = s.budgets.filter(x => x.id !== b.id); }),
-          style: { border: "none", background: "none", cursor: "pointer", fontSize: 13, color: C.red, lineHeight: 1 }
-        }, "\u2715")
-      ),
-      // Edit form
-      isEditing && editForm ? /*#__PURE__*/React.createElement("div", {
-        style: { display: "flex", flexDirection: "column", gap: 10, marginBottom: 16, padding: "14px", background: C.bg, borderRadius: 8 }
-      },
-        /*#__PURE__*/React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 } },
-          /*#__PURE__*/React.createElement("div", null,
-            /*#__PURE__*/React.createElement("label", { style: st.label }, "Categoría"),
-            /*#__PURE__*/React.createElement("select", {
-              value: editForm.categoryId, onChange: e => fe("categoryId")(e.target.value), style: st.select
-            }, S.categories.filter(c => !c.archived && c.type === "expense").map(c =>
-              /*#__PURE__*/React.createElement("option", { key: c.id, value: c.id }, c.name)
-            ))
-          ),
-          /*#__PURE__*/React.createElement("div", null,
-            /*#__PURE__*/React.createElement("label", { style: st.label }, "Período"),
-            /*#__PURE__*/React.createElement("select", {
-              value: editForm.period, onChange: e => fe("period")(e.target.value), style: st.select
-            },
-              /*#__PURE__*/React.createElement("option", { value: "weekly" }, "Semanal"),
-              /*#__PURE__*/React.createElement("option", { value: "monthly" }, "Mensual"),
-              /*#__PURE__*/React.createElement("option", { value: "annual" }, "Anual")
-            )
-          )
-        ),
-        /*#__PURE__*/React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 } },
-          /*#__PURE__*/React.createElement("div", null,
-            /*#__PURE__*/React.createElement("label", { style: st.label }, "Monto límite"),
-            /*#__PURE__*/React.createElement("input", {
-              type: "number", value: editForm.amount, onChange: e => fe("amount")(e.target.value),
-              placeholder: "0.00", style: st.input, step: "any"
-            })
-          ),
-          /*#__PURE__*/React.createElement("div", null,
-            /*#__PURE__*/React.createElement("label", { style: st.label }, "Divisa"),
-            /*#__PURE__*/React.createElement("select", {
-              value: editForm.currencyId, onChange: e => fe("currencyId")(e.target.value), style: st.select
-            }, S.currencies.map(c =>
-              /*#__PURE__*/React.createElement("option", { key: c.id, value: c.id }, c.icon, " ", c.code)
-            ))
-          )
-        ),
-        /*#__PURE__*/React.createElement("button", {
-          onClick: saveEdit,
-          disabled: !editForm.categoryId || !editForm.amount || parseFloat(editForm.amount) <= 0,
-          style: { ...st.btnPri, opacity: (!editForm.amount || parseFloat(editForm.amount) <= 0) ? 0.4 : 1 }
-        }, "Guardar cambios")
-      ) : null,
-      // Stats & bar
-      !isEditing && /*#__PURE__*/React.createElement(React.Fragment, null,
-        /*#__PURE__*/React.createElement("div", {
-          style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 12 }
-        },
-          /*#__PURE__*/React.createElement("div", { style: { background: C.surface, borderRadius: 6, padding: "10px 14px", border: `1px solid ${C.border}` } },
-            /*#__PURE__*/React.createElement("div", { style: { fontSize: 10, color: C.muted, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 } }, "Presupuestado"),
-            /*#__PURE__*/React.createElement("div", { style: { fontSize: 17, fontWeight: 500, color: C.text } }, fmt(b.amount, bcId, S.currencies))
-          ),
-          /*#__PURE__*/React.createElement("div", { style: { background: over ? "#fdf2f2" : C.surface, borderRadius: 6, padding: "10px 14px", border: over ? `1px solid ${C.red}22` : `1px solid ${C.border}` } },
-            /*#__PURE__*/React.createElement("div", { style: { fontSize: 10, color: over ? C.red : C.muted, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 } }, "Gastado"),
-            /*#__PURE__*/React.createElement("div", { style: { fontSize: 17, fontWeight: 500, color: over ? C.red : C.text } }, fmt(spent, bcId, S.currencies))
-          )
-        ),
-        /*#__PURE__*/React.createElement("div", { style: { height: 5, borderRadius: 5, background: "#e8e6e1" } },
-          /*#__PURE__*/React.createElement("div", { style: { height: "100%", borderRadius: 5, width: `${pct}%`, background: barColor, transition: "width 0.3s" } })
-        ),
-        /*#__PURE__*/React.createElement("div", {
-          style: { marginTop: 7, fontSize: 11, color: over ? C.red : remaining <= 0.1 * b.amount ? "#c47c1a" : C.muted }
-        }, over ? `⚠ Superado en ${fmt(spent - b.amount, bcId, S.currencies)}` : `Disponible: ${fmt(remaining, bcId, S.currencies)}`)
-      )
-    );
-  }));
+  }, "+ Presupuesto")), S.budgets.map(b => /*#__PURE__*/React.createElement(BudgetCard, {
+    key: b.id,
+    b: b,
+    S: S,
+    upd: upd,
+    dc: dc,
+    isEditing: editId === b.id,
+    startEdit: startEdit,
+    cancelEdit: cancelEdit,
+    editForm: editId === b.id ? editForm : null,
+    fe: fe,
+    saveEdit: saveEdit
+  })));
 }
 function Reportes({
   S,
+  upd,
   dc
 }) {
   const [mode, setMode] = React.useState("monthly");
@@ -3297,7 +3363,8 @@ function Reportes({
     years: years,
     dcId: dcId,
     S: S,
-    isExcl: isExcl
+    isExcl: isExcl,
+    upd: upd
   }), mode === "custom" && /*#__PURE__*/React.createElement(CustomReport, {
     S: S,
     from: from,
@@ -3317,16 +3384,64 @@ function CatReport({
   years,
   dcId,
   S,
-  isExcl
+  isExcl,
+  upd
 }) {
   const [m1, setM1] = React.useState("");
   const [expCat, setExpCat] = React.useState(null);
+  const [editId, setEditId] = React.useState(null);
+  const [editForm, setEditForm] = React.useState(null);
+  const [confirmDel, setConfirmDel] = React.useState(null);
   const from = m1 ? `${y1}-${m1}-01` : `${y1}-01-01`;
   const to = m1 ? `${y1}-${m1}-31` : `${y1}-12-31`;
   const items = catData(from, to);
   const tot = items.reduce((s, x) => s + x.total, 0);
   const periodLabel = m1 ? `${MONTHS_FULL[parseInt(m1, 10) - 1]} ${y1}` : y1;
   const getCatTxs = catId => S.transactions.filter(t => t.categoryId === catId && t.type === "expense" && !isExcl(t) && t.date >= from && t.date <= to).sort((a, b) => b.date.localeCompare(a.date));
+  const startEdit = t => {
+    const itemId = t.subcategoryId || t.categoryId || "";
+    setEditId(t.id);
+    setEditForm({
+      accountId: t.accountId,
+      itemId,
+      date: t.date,
+      note: t.note,
+      amount: String(t.amount)
+    });
+    setConfirmDel(null);
+  };
+  const cancelEdit = () => {
+    setEditId(null);
+    setEditForm(null);
+  };
+  const saveEdit = () => {
+    const cats = S.categories.filter(c => !c.archived && c.type === "expense");
+    const subs = (S.subcategories || []).filter(s => {
+      if (s.archived) return false;
+      const c = S.categories.find(x => x.id === s.catId);
+      return c && !c.archived && c.type === "expense";
+    });
+    const allItems = [...cats.map(c => ({ id: c.id, isCat: true })), ...subs.map(s => ({ id: s.id, isCat: false, catId: s.catId }))];
+    const item = allItems.find(i => i.id === editForm.itemId);
+    upd(s => {
+      const t = s.transactions.find(x => x.id === editId);
+      if (!t) return;
+      t.date = editForm.date;
+      t.accountId = editForm.accountId;
+      t.categoryId = item?.isCat ? editForm.itemId : item?.catId || "";
+      t.subcategoryId = item?.isCat ? "" : editForm.itemId;
+      t.amount = parseFloat(editForm.amount);
+      t.note = editForm.note;
+    });
+    setEditId(null);
+    setEditForm(null);
+  };
+  const deleteT = id => {
+    upd(s => {
+      s.transactions = s.transactions.filter(x => x.id !== id);
+    });
+    setConfirmDel(null);
+  };
   return /*#__PURE__*/React.createElement("div", {
     style: st.card
   }, /*#__PURE__*/React.createElement("div", {
@@ -3451,14 +3566,34 @@ function CatReport({
       const s2 = S.subcategories?.find(x => x.id === t.subcategoryId);
       const acc = S.accounts.find(a => a.id === t.accountId);
       const cur = acc ? S.currencies.find(c => c.id === acc.currencyId) : null;
+      const isEditing = editId === t.id;
+      const isConfirm = confirmDel === t.id;
+      if (isEditing && editForm) {
+        return /*#__PURE__*/React.createElement("div", {
+          key: t.id,
+          style: {
+            padding: "10px 0",
+            borderBottom: `1px solid ${C.border}`
+          }
+        }, /*#__PURE__*/React.createElement(TransactionForm, {
+          S: S,
+          sub: "expense",
+          form: editForm,
+          setForm: setEditForm,
+          onSave: saveEdit,
+          onCancel: cancelEdit,
+          saveLabel: "Guardar cambios"
+        }));
+      }
       return /*#__PURE__*/React.createElement("div", {
-        key: t.id,
+        key: t.id
+      }, /*#__PURE__*/React.createElement("div", {
         style: {
           display: "flex",
           alignItems: "center",
           gap: 8,
           padding: "7px 0",
-          borderBottom: `1px solid ${C.border}`
+          borderBottom: isConfirm ? "none" : `1px solid ${C.border}`
         }
       }, /*#__PURE__*/React.createElement("span", {
         style: {
@@ -3488,7 +3623,66 @@ function CatReport({
           color: C.expense,
           flexShrink: 0
         }
-      }, "-", fmt(t.amount, cur?.id || "BOB", S.currencies)));
+      }, "-", fmt(t.amount, cur?.id || "BOB", S.currencies)), /*#__PURE__*/React.createElement("button", {
+        onClick: () => startEdit(t),
+        style: {
+          border: "none",
+          background: "none",
+          cursor: "pointer",
+          fontSize: 12,
+          color: C.muted,
+          padding: "2px 4px",
+          flexShrink: 0
+        }
+      }, "\u270F\uFE0E"), /*#__PURE__*/React.createElement("button", {
+        onClick: () => setConfirmDel(isConfirm ? null : t.id),
+        style: {
+          border: "none",
+          background: "none",
+          cursor: "pointer",
+          fontSize: 12,
+          color: C.red,
+          padding: "2px 4px",
+          flexShrink: 0
+        }
+      }, "\uD83D\uDDD1")), isConfirm && /*#__PURE__*/React.createElement("div", {
+        style: {
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          padding: "7px 0",
+          borderBottom: `1px solid ${C.border}`
+        }
+      }, /*#__PURE__*/React.createElement("span", {
+        style: {
+          flex: 1,
+          fontSize: 11,
+          color: C.red
+        }
+      }, "\xBFEliminar este registro?"), /*#__PURE__*/React.createElement("button", {
+        onClick: () => deleteT(t.id),
+        style: {
+          border: "none",
+          background: C.red,
+          color: "#fff",
+          borderRadius: 6,
+          padding: "4px 12px",
+          fontSize: 11,
+          cursor: "pointer",
+          fontWeight: 600
+        }
+      }, "S\xED"), /*#__PURE__*/React.createElement("button", {
+        onClick: () => setConfirmDel(null),
+        style: {
+          border: `1px solid ${C.border}`,
+          background: "none",
+          borderRadius: 6,
+          padding: "4px 12px",
+          fontSize: 11,
+          cursor: "pointer",
+          color: C.text
+        }
+      }, "No")));
     })));
   }));
 }
