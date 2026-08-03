@@ -3019,6 +3019,7 @@ function getBudgetRange(period, offset) {
 }
 function BudgetCard({
   b,
+  offset,
   S,
   upd,
   dc,
@@ -3029,10 +3030,6 @@ function BudgetCard({
   fe,
   saveEdit
 }) {
-  const [offset, setOffset] = React.useState(0);
-  React.useEffect(() => {
-    setOffset(0);
-  }, [b.period]);
   const cat = S.categories.find(c => c.id === b.categoryId);
   if (!cat) return null;
   const bcId = b.currencyId || dc.id;
@@ -3117,29 +3114,13 @@ function BudgetCard({
         style: { ...st.btnPri, opacity: (!editForm.amount || parseFloat(editForm.amount) <= 0) ? 0.4 : 1 }
       }, "Guardar cambios")
     ) : null,
-    // Period navigator + Stats & bar
+    // Period label + Stats & bar
     !isEditing && /*#__PURE__*/React.createElement(React.Fragment, null,
       /*#__PURE__*/React.createElement("div", {
-        style: { display: "flex", alignItems: "center", gap: 6, marginBottom: 12 }
-      },
-        /*#__PURE__*/React.createElement("button", {
-          onClick: () => setOffset(o => o - 1),
-          style: { ...st.btn, padding: "4px 10px", fontSize: 14, flexShrink: 0 }
-        }, "\u2039"),
-        /*#__PURE__*/React.createElement("div", {
-          style: { flex: 1, textAlign: "center", fontSize: 12, fontWeight: 500, color: C.text }
-        }, label, offset === 0 && /*#__PURE__*/React.createElement("span", {
-          style: { color: C.muted, fontWeight: 400 }
-        }, " \xB7 actual")),
-        offset !== 0 && /*#__PURE__*/React.createElement("button", {
-          onClick: () => setOffset(0),
-          style: { ...st.btn, padding: "4px 8px", fontSize: 11, flexShrink: 0, color: C.muted }
-        }, "Hoy"),
-        /*#__PURE__*/React.createElement("button", {
-          onClick: () => setOffset(o => o + 1),
-          style: { ...st.btn, padding: "4px 10px", fontSize: 14, flexShrink: 0 }
-        }, "\u203a")
-      ),
+        style: { textAlign: "center", fontSize: 12, fontWeight: 500, color: C.text, marginBottom: 12 }
+      }, label, offset === 0 && /*#__PURE__*/React.createElement("span", {
+        style: { color: C.muted, fontWeight: 400 }
+      }, " \xB7 actual")),
       /*#__PURE__*/React.createElement("div", {
         style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 12 }
       },
@@ -3169,6 +3150,7 @@ function Presupuesto({
 }) {
   const [editId, setEditId] = React.useState(null);
   const [editForm, setEditForm] = React.useState(null);
+  const [offset, setOffset] = React.useState(0);
   const startEdit = b => {
     setEditId(b.id);
     setEditForm({ categoryId: b.categoryId, period: b.period, amount: String(b.amount), currencyId: b.currencyId || dc.id });
@@ -3192,9 +3174,30 @@ function Presupuesto({
   }, /*#__PURE__*/React.createElement("button", {
     onClick: () => setModal({ type: "newBudget" }),
     style: st.btnPri
-  }, "+ Presupuesto")), S.budgets.map(b => /*#__PURE__*/React.createElement(BudgetCard, {
+  }, "+ Presupuesto")),
+  S.budgets.length > 0 && /*#__PURE__*/React.createElement("div", {
+    style: { ...st.card, padding: "10px 14px", display: "flex", alignItems: "center", gap: 8 }
+  },
+    /*#__PURE__*/React.createElement("button", {
+      onClick: () => setOffset(o => o - 1),
+      style: { ...st.btn, padding: "6px 14px", fontSize: 15, flexShrink: 0 }
+    }, "\u2039"),
+    /*#__PURE__*/React.createElement("div", {
+      style: { flex: 1, textAlign: "center", fontSize: 12, color: C.muted }
+    }, offset === 0 ? "Período actual de cada presupuesto" : `Navegando ${offset > 0 ? offset + " período(s) adelante" : Math.abs(offset) + " período(s) atrás"}`),
+    offset !== 0 && /*#__PURE__*/React.createElement("button", {
+      onClick: () => setOffset(0),
+      style: { ...st.btn, padding: "6px 10px", fontSize: 12, flexShrink: 0, color: C.muted }
+    }, "Hoy"),
+    /*#__PURE__*/React.createElement("button", {
+      onClick: () => setOffset(o => o + 1),
+      style: { ...st.btn, padding: "6px 14px", fontSize: 15, flexShrink: 0 }
+    }, "\u203a")
+  ),
+  S.budgets.map(b => /*#__PURE__*/React.createElement(BudgetCard, {
     key: b.id,
     b: b,
+    offset: offset,
     S: S,
     upd: upd,
     dc: dc,
