@@ -3176,23 +3176,31 @@ function Presupuesto({
     style: st.btnPri
   }, "+ Presupuesto")),
   S.budgets.length > 0 && /*#__PURE__*/React.createElement("div", {
-    style: { ...st.card, padding: "10px 14px", display: "flex", alignItems: "center", gap: 8 }
+    style: st.card
   },
-    /*#__PURE__*/React.createElement("button", {
-      onClick: () => setOffset(o => o - 1),
-      style: { ...st.btn, padding: "6px 14px", fontSize: 15, flexShrink: 0 }
-    }, "\u2039"),
     /*#__PURE__*/React.createElement("div", {
-      style: { flex: 1, textAlign: "center", fontSize: 12, color: C.muted }
-    }, offset === 0 ? "Período actual de cada presupuesto" : `Navegando ${offset > 0 ? offset + " período(s) adelante" : Math.abs(offset) + " período(s) atrás"}`),
-    offset !== 0 && /*#__PURE__*/React.createElement("button", {
-      onClick: () => setOffset(0),
-      style: { ...st.btn, padding: "6px 10px", fontSize: 12, flexShrink: 0, color: C.muted }
-    }, "Hoy"),
-    /*#__PURE__*/React.createElement("button", {
-      onClick: () => setOffset(o => o + 1),
-      style: { ...st.btn, padding: "6px 14px", fontSize: 15, flexShrink: 0 }
-    }, "\u203a")
+      style: { display: "flex", alignItems: "center", gap: 8 }
+    },
+      /*#__PURE__*/React.createElement("button", {
+        onClick: () => setOffset(o => o - 1),
+        style: { ...st.btn, padding: "7px 14px", fontSize: 16, flexShrink: 0 }
+      }, "\u2039"),
+      /*#__PURE__*/React.createElement("div", {
+        style: { ...st.input, flex: 1, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 500, fontSize: 13, userSelect: "none" }
+      }, offset === 0 ? "Período actual" : offset > 0 ? `${offset} período(s) adelante` : `${Math.abs(offset)} período(s) atrás`),
+      /*#__PURE__*/React.createElement("button", {
+        onClick: () => setOffset(o => o + 1),
+        style: { ...st.btn, padding: "7px 14px", fontSize: 16, flexShrink: 0 }
+      }, "\u203a")
+    ),
+    offset !== 0 && /*#__PURE__*/React.createElement("div", {
+      style: { textAlign: "center", marginTop: 8 }
+    },
+      /*#__PURE__*/React.createElement("button", {
+        onClick: () => setOffset(0),
+        style: { ...st.btn, padding: "5px 14px", fontSize: 12, color: C.muted }
+      }, "Volver a hoy")
+    )
   ),
   S.budgets.map(b => /*#__PURE__*/React.createElement(BudgetCard, {
     key: b.id,
