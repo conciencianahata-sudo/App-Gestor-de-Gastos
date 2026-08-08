@@ -289,7 +289,15 @@ function App() {
   };
   const accBalIn = (id, curId) => {
     const a = S.accounts.find(x => x.id === id);
-    return a ? cvt(accBal(id), a.currencyId, curId, S.currencies) : 0;
+    if (!a) return 0;
+    const raw = accBal(id);
+    // Cuentas de inversión con tasa propia: se calculan con la tasa fijada en la última
+    // "Actualización de capital", totalmente independiente de las tasas de Divisas.
+    if (a.isInvestment && a.invRate != null && a.invRateCurId) {
+      if (curId === a.invRateCurId) return raw * a.invRate;
+      return cvt(raw * a.invRate, a.invRateCurId, curId, S.currencies);
+    }
+    return cvt(raw, a.currencyId, curId, S.currencies);
   };
   const totalBal = curId => S.accounts.filter(a => !a.excludeBalance && !a.archived).reduce((s, a) => s + accBalIn(a.id, curId), 0);
   const shared = {
@@ -4425,9 +4433,20 @@ function InvMovRow({ t, S, accs, upd }) {
 }
 function InvStats({ S, dc, accBal, accBalIn, accs, label, color, upd }) {
   const dcId = dc.id;
+  // Convierte usando la tasa propia de la cuenta (si tiene una fijada) en vez de las tasas
+  // globales de Divisas, para que el rendimiento de Inversiones sea independiente de Divisas.
+  const cvAcc = (amount, a) => {
+    if (!a) return amount;
+    if (a.isInvestment && a.invRate != null && a.invRateCurId) {
+      return a.invRateCurId === dcId
+        ? amount * a.invRate
+        : cvt(amount * a.invRate, a.invRateCurId, dcId, S.currencies);
+    }
+    return cvt(amount, a.currencyId, dcId, S.currencies);
+  };
   const cv = t => {
     const a = S.accounts.find(x => x.id === t.accountId);
-    return a ? cvt(t.amount, a.currencyId, dcId, S.currencies) : t.amount;
+    return a ? cvAcc(t.amount, a) : t.amount;
   };
   const txs = S.transactions.filter(t => accs.some(a => a.id === t.accountId));
   const totVal = accs.reduce((s, a) => s + accBalIn(a.id, dcId), 0);
@@ -4438,10 +4457,8 @@ function InvStats({ S, dc, accBal, accBalIn, accs, label, color, upd }) {
   // Capital invertido = suma de transferencias entrantes convertidas a dcId
   const capitalInv = accs.reduce((s, a) => {
     return s + S.transfers.filter(t => t.toId === a.id).reduce((ss, tr) => {
-      const fromAcc = S.accounts.find(x => x.id === tr.fromId);
       const amt = tr.toAmount ?? tr.amount;
-      const curId = a.currencyId;
-      return ss + cvt(amt, curId, dcId, S.currencies);
+      return ss + cvAcc(amt, a);
     }, 0);
   }, 0);
   const rendPct = capitalInv > 0 ? (netR / capitalInv * 100) : null;
@@ -4561,12 +4578,13 @@ function Inversiones({
     if (Math.abs(diff) < 0.0000001 && !hasBsEquiv) { setShowCapModal(false); return; }
     upd(s => {
       if (hasBsEquiv) {
-        // Recalcula la tasa de la divisa de esta cuenta a partir del equivalente ingresado
-        // (ej. lo que muestra Binance), en vez de depender de la tasa configurada en Divisas.
-        const c = s.currencies.find(x => x.id === acc.currencyId);
-        const dispCur = s.currencies.find(x => x.id === dcId);
-        if (c && dispCur) {
-          c.rateToUSD = bsEquivN * dispCur.rateToUSD / newAmt;
+        // Fija una tasa propia para ESTA cuenta (independiente de Divisas), calculada a partir
+        // del equivalente que ingresaste (ej. lo que muestra Binance). Solo cambia la próxima
+        // vez que actualices el capital con un nuevo equivalente; los cambios en Divisas no la afectan.
+        const acc2 = s.accounts.find(x => x.id === capForm.accId);
+        if (acc2) {
+          acc2.invRate = bsEquivN / newAmt;
+          acc2.invRateCurId = dcId;
         }
       }
       if (Math.abs(diff) >= 0.0000001) {
@@ -4607,8 +4625,12 @@ function Inversiones({
   const modalDiff = !isNaN(modalNewAmt) && capForm.newAmt !== "" ? modalNewAmt - modalCurBal : null;
   const modalBsEquivN = parseFloat(capForm.bsEquiv);
   const modalHasBsEquiv = capForm.bsEquiv !== "" && !isNaN(modalBsEquivN) && modalBsEquivN > 0;
-  const modalImpliedAtCurrentRate = modalCur && !isNaN(modalNewAmt) && modalNewAmt > 0 ? cvt(modalNewAmt, modalCur.id, dcId, S.currencies) : null;
-  const modalImpliedNewRate = modalHasBsEquiv && modalCur && !isNaN(modalNewAmt) && modalNewAmt > 0 ? modalBsEquivN * dc.rateToUSD / modalNewAmt : null;
+  const modalImpliedAtCurrentRate = modalAcc && !isNaN(modalNewAmt) && modalNewAmt > 0
+    ? (modalAcc.isInvestment && modalAcc.invRate != null && modalAcc.invRateCurId === dcId
+        ? modalNewAmt * modalAcc.invRate
+        : (modalCur ? cvt(modalNewAmt, modalCur.id, dcId, S.currencies) : null))
+    : null;
+  const modalImpliedNewRate = modalHasBsEquiv && !isNaN(modalNewAmt) && modalNewAmt > 0 ? modalBsEquivN / modalNewAmt : null;
 
   return /*#__PURE__*/React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 16 } },
     // Modal actualizar capital
@@ -4667,13 +4689,13 @@ function Inversiones({
               style: st.input
             }),
             /*#__PURE__*/React.createElement("div", { style: { fontSize: 11, color: C.muted, marginTop: 4 } },
-              "Con la tasa actual equivaldría a ", fmt(modalImpliedAtCurrentRate || 0, dcId, S.currencies), ". Si es distinto en Binance, ingrésalo aquí."
+              "Con la última tasa fijada equivaldría a ", fmt(modalImpliedAtCurrentRate || 0, dcId, S.currencies), ". Si es distinto en Binance, ingrésalo aquí — esta tasa quedará fija para esta cuenta hasta la próxima actualización, sin importar los cambios en Divisas."
             )
           ),
           modalHasBsEquiv && modalImpliedNewRate !== null && /*#__PURE__*/React.createElement("div", {
             style: { fontSize: 12, padding: "8px 12px", borderRadius: 8, background: C.blue + "12", border: `1px solid ${C.blue}33`, color: C.blue, fontWeight: 500 }
           },
-            "\u21BB Se actualizará la tasa: 1 ", modalCur?.code, " = ", modalImpliedNewRate.toLocaleString("es-MX", { maximumFractionDigits: 6 }), " USD"
+            "\u21BB Se fijará: 1 ", modalCur?.code, " = ", modalImpliedNewRate.toLocaleString("es-MX", { maximumFractionDigits: 6 }), " ", dc.code, " (independiente de Divisas)"
           ),
           modalDiff !== null && Math.abs(modalDiff) > 0.000001 && /*#__PURE__*/React.createElement("div", {
             style: { fontSize: 12, padding: "8px 12px", borderRadius: 8, background: modalDiff >= 0 ? C.green + "12" : C.red + "12", border: `1px solid ${modalDiff >= 0 ? C.green : C.red}33`, color: modalDiff >= 0 ? C.green : C.red, fontWeight: 500 }
