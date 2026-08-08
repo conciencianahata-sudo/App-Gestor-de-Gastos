@@ -4449,27 +4449,30 @@ function InvStats({ S, dc, accBal, accBalIn, accs, label, color, upd }) {
     return a ? cvAcc(t.amount, a) : t.amount;
   };
   const txs = S.transactions.filter(t => accs.some(a => a.id === t.accountId));
+  // "Ingreso a inversión" = capital que tú pones; se excluye del rendimiento y se suma al capital invertido.
+  const rendTxs = txs.filter(t => t.note !== "Ingreso a inversión");
+  const incomeTxs = txs.filter(t => t.note === "Ingreso a inversión" && t.type === "income");
   const totVal = accs.reduce((s, a) => s + accBalIn(a.id, dcId), 0);
-  // Rendimiento = ingresos - egresos de transacciones de inversión
-  const totInc = txs.filter(t => t.type === "income").reduce((s, t) => s + cv(t), 0);
-  const totExp = txs.filter(t => t.type === "expense").reduce((s, t) => s + cv(t), 0);
+  // Rendimiento = ingresos - egresos de transacciones de inversión (sin contar tus propios ingresos)
+  const totInc = rendTxs.filter(t => t.type === "income").reduce((s, t) => s + cv(t), 0);
+  const totExp = rendTxs.filter(t => t.type === "expense").reduce((s, t) => s + cv(t), 0);
   const netR = totInc - totExp;
-  // Capital invertido = suma de transferencias entrantes convertidas a dcId
+  // Capital invertido = transferencias entrantes + tus propios "Ingreso a inversión", convertidos a dcId
   const capitalInv = accs.reduce((s, a) => {
     return s + S.transfers.filter(t => t.toId === a.id).reduce((ss, tr) => {
       const amt = tr.toAmount ?? tr.amount;
       return ss + cvAcc(amt, a);
     }, 0);
-  }, 0);
+  }, 0) + incomeTxs.reduce((s, t) => s + cv(t), 0);
   const rendPct = capitalInv > 0 ? (netR / capitalInv * 100) : null;
-  // Gráfica: rendimientos mensuales últimos 12 meses
+  // Gráfica: rendimientos mensuales últimos 12 meses (sin contar tus propios ingresos)
   const now = new Date();
   const months = Array.from({ length: 12 }, (_, i) => {
     const d = new Date(now.getFullYear(), now.getMonth() - 11 + i, 1);
     const mk = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
     const lbl = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"][d.getMonth()];
-    const inc = txs.filter(t => t.date.startsWith(mk) && t.type === "income").reduce((s, t) => s + cv(t), 0);
-    const exp = txs.filter(t => t.date.startsWith(mk) && t.type === "expense").reduce((s, t) => s + cv(t), 0);
+    const inc = rendTxs.filter(t => t.date.startsWith(mk) && t.type === "income").reduce((s, t) => s + cv(t), 0);
+    const exp = rendTxs.filter(t => t.date.startsWith(mk) && t.type === "expense").reduce((s, t) => s + cv(t), 0);
     return { lbl, inc, exp, net: inc - exp };
   });
   const maxM = Math.max(...months.map(m => Math.max(m.inc, m.exp, Math.abs(m.net))), 1);
@@ -4563,6 +4566,7 @@ function Inversiones({
   const invAccs = S.accounts.filter(a => a.excludeBalance && a.isInvestment && !a.archived);
   const [selAccId, setSelAccId] = React.useState(null);
   const [showCapModal, setShowCapModal] = React.useState(false);
+  const [capMode, setCapMode] = React.useState("update"); // "update" (rendimiento) | "income" (ingreso propio)
   const [capForm, setCapForm] = React.useState({ accId: "", newAmt: "", bsEquiv: "" });
 
   const saveCapital = () => {
@@ -4596,7 +4600,7 @@ function Inversiones({
           categoryId: "",
           subcategoryId: "",
           amount: Math.abs(diff),
-          note: "Actualización de capital"
+          note: capMode === "income" ? "Ingreso a inversión" : "Actualización de capital"
         });
       }
     });
@@ -4642,7 +4646,22 @@ function Inversiones({
         onClick: e => e.stopPropagation(),
         style: { background: C.surface, borderRadius: "16px 16px 0 0", padding: "24px 20px 36px", width: "100%", maxWidth: 500, boxShadow: "0 -4px 40px rgba(0,0,0,0.18)" }
       },
-        /*#__PURE__*/React.createElement("div", { style: { fontWeight: 600, fontSize: 15, marginBottom: 20 } }, "Actualizar capital invertido"),
+        /*#__PURE__*/React.createElement("div", { style: { fontWeight: 600, fontSize: 15, marginBottom: 16 } }, "Registrar movimiento de inversión"),
+        /*#__PURE__*/React.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 16 } },
+          /*#__PURE__*/React.createElement("button", {
+            onClick: () => setCapMode("update"),
+            style: { ...st.btn, flex: 1, background: capMode === "update" ? C.accent : C.btnBg, color: capMode === "update" ? C.bg : C.text, border: `1px solid ${capMode === "update" ? C.accent : C.border}` }
+          }, "Rendimiento"),
+          /*#__PURE__*/React.createElement("button", {
+            onClick: () => setCapMode("income"),
+            style: { ...st.btn, flex: 1, background: capMode === "income" ? C.accent : C.btnBg, color: capMode === "income" ? C.bg : C.text, border: `1px solid ${capMode === "income" ? C.accent : C.border}` }
+          }, "Ingreso")
+        ),
+        /*#__PURE__*/React.createElement("div", { style: { fontSize: 11, color: C.muted, marginBottom: 16 } },
+          capMode === "income"
+            ? "Usa esto cuando agregas dinero de tu bolsillo a la inversión."
+            : "Usa esto para reflejar el interés o ganancia/pérdida generada por el mercado."
+        ),
         /*#__PURE__*/React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 14 } },
           /*#__PURE__*/React.createElement("div", null,
             /*#__PURE__*/React.createElement("label", { style: st.label }, "Cuenta"),
@@ -4700,7 +4719,9 @@ function Inversiones({
           modalDiff !== null && Math.abs(modalDiff) > 0.000001 && /*#__PURE__*/React.createElement("div", {
             style: { fontSize: 12, padding: "8px 12px", borderRadius: 8, background: modalDiff >= 0 ? C.green + "12" : C.red + "12", border: `1px solid ${modalDiff >= 0 ? C.green : C.red}33`, color: modalDiff >= 0 ? C.green : C.red, fontWeight: 500 }
           },
-            modalDiff >= 0 ? "\u2197 Ganancia: +" : "\u2198 P\xE9rdida: ",
+            capMode === "income"
+              ? (modalDiff >= 0 ? "\u2197 Ingreso: +" : "\u2198 Retiro: ")
+              : (modalDiff >= 0 ? "\u2197 Ganancia: +" : "\u2198 P\xE9rdida: "),
             fmt(Math.abs(modalDiff), modalCur?.id || dcId, S.currencies)
           ),
           /*#__PURE__*/React.createElement("div", { style: { display: "flex", gap: 8, marginTop: 8 } },
@@ -4708,7 +4729,7 @@ function Inversiones({
             /*#__PURE__*/React.createElement("button", {
               onClick: saveCapital,
               disabled: !capForm.accId || capForm.newAmt === "" || isNaN(modalNewAmt),
-              style: { ...st.btnPri, flex: 1, opacity: (!capForm.accId || capForm.newAmt === "") ? 0.4 : 1, background: C.blue }
+              style: { ...st.btnPri, flex: 1, opacity: (!capForm.accId || capForm.newAmt === "") ? 0.4 : 1, background: capMode === "income" ? C.green : C.blue }
             }, "Guardar")
           )
         )
@@ -4719,6 +4740,7 @@ function Inversiones({
       /*#__PURE__*/React.createElement("span", { style: { fontSize: 13, color: C.muted } }, selAcc ? selAcc.name : "Todas las inversiones"),
       /*#__PURE__*/React.createElement("button", {
         onClick: () => {
+          setCapMode("update");
           setCapForm({ accId: selAccId || (invAccs[0]?.id || ""), newAmt: "", bsEquiv: "" });
           setShowCapModal(true);
         },
