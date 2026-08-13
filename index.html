@@ -970,7 +970,7 @@ function Registro({
   const periodLabelMap = { day: "Hoy", week: "Esta semana", month: "Este mes", year: "Este año" };
   // Agrupación por categoría, solo para la vista de Año
   const catGroups = React.useMemo(() => {
-    if (regPeriod !== "year") return null;
+    if (regPeriod !== "year" && regPeriod !== "month" && regPeriod !== "week") return null;
     const map = {};
     recent.forEach(t => {
       const cat = S.categories.find(c => c.id === t.categoryId);
@@ -1328,7 +1328,7 @@ function Registro({
       }, "No")));
     };
 
-    if (regPeriod === "year" && catGroups) {
+    if (regPeriod !== "day" && catGroups) {
       const yearTot = catGroups.reduce((s, g) => s + g.total, 0);
       return catGroups.length > 0 && /*#__PURE__*/React.createElement("div", {
         style: st.card
