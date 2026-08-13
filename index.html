@@ -837,10 +837,12 @@ function Registro({
   const [editId, setEditId] = React.useState(null);
   const [editForm, setEditForm] = React.useState(null);
   const [confirmDel, setConfirmDel] = React.useState(null);
+  const [expCat, setExpCat] = React.useState(null);
   const switchSub = t => {
     setSub(t);
     setOpen(false);
     setEditId(null);
+    setExpCat(null);
     setForm({
       accountId: S.defaultAccountId || "",
       itemId: "",
@@ -966,6 +968,21 @@ function Registro({
     return s + t.amount;
   }, 0);
   const periodLabelMap = { day: "Hoy", week: "Esta semana", month: "Este mes", year: "Este año" };
+  // Agrupación por categoría, solo para la vista de Año
+  const catGroups = React.useMemo(() => {
+    if (regPeriod !== "year") return null;
+    const map = {};
+    recent.forEach(t => {
+      const cat = S.categories.find(c => c.id === t.categoryId);
+      const key = cat ? cat.id : "_none";
+      const acc = S.accounts.find(a => a.id === t.accountId);
+      const val = acc ? cvt(t.amount, acc.currencyId, dc.id, S.currencies) : t.amount;
+      if (!map[key]) map[key] = { cat, total: 0, txs: [] };
+      map[key].total += val;
+      map[key].txs.push(t);
+    });
+    return Object.values(map).sort((a, b) => b.total - a.total);
+  }, [regPeriod, recent, S.categories, S.accounts, S.currencies, dc.id]);
   return /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
@@ -1081,7 +1098,7 @@ function Registro({
       style: { display: "flex", background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden" }
     }, [["day", "D\xEDa"], ["week", "Semana"], ["month", "Mes"], ["year", "A\xF1o"]].map(([id, lbl]) => /*#__PURE__*/React.createElement("button", {
       key: id,
-      onClick: () => setRegPeriod(id),
+      onClick: () => { setRegPeriod(id); setExpCat(null); },
       style: {
         flex: 1, border: "none", padding: "8px 4px", fontSize: 12, cursor: "pointer",
         background: regPeriod === id ? C.accent : C.btnBg,
@@ -1176,12 +1193,12 @@ function Registro({
     ),
     regPeriod === "year" && /*#__PURE__*/React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8 } },
       /*#__PURE__*/React.createElement("button", {
-        onClick: () => setRegYear(y => String(parseInt(y)-1)),
+        onClick: () => { setRegYear(y => String(parseInt(y)-1)); setExpCat(null); },
         style: { ...st.btn, padding: "7px 14px", fontSize: 16, flexShrink: 0 }
       }, "\u2039"),
       /*#__PURE__*/React.createElement("div", { style: { flex: 1, position: "relative" } },
         /*#__PURE__*/React.createElement("select", {
-          value: regYear, onChange: e => setRegYear(e.target.value),
+          value: regYear, onChange: e => { setRegYear(e.target.value); setExpCat(null); },
           style: { ...st.select, position: "absolute", inset: 0, opacity: 0, cursor: "pointer", zIndex: 2, padding: 0, margin: 0, height: "100%" }
         }, Array.from({ length: 20 }, (_, i) => (new Date().getFullYear()+2 - i).toString()).map(y =>
           /*#__PURE__*/React.createElement("option", { key: y, value: y }, y)
@@ -1191,128 +1208,171 @@ function Registro({
         )
       ),
       /*#__PURE__*/React.createElement("button", {
-        onClick: () => setRegYear(y => String(parseInt(y)+1)),
+        onClick: () => { setRegYear(y => String(parseInt(y)+1)); setExpCat(null); },
         style: { ...st.btn, padding: "7px 14px", fontSize: 16, flexShrink: 0 }
       }, "\u203a")
     )
   ),
-  recent.length > 0 && /*#__PURE__*/React.createElement("div", {
-    style: st.card
-  }, /*#__PURE__*/React.createElement("div", {
-    style: { fontSize: 11, color: C.muted, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 14 }
-  }, sub === "expense" ? "Gastos" : "Ingresos", " \xB7 ", recent.length, " registro", recent.length !== 1 ? "s" : ""), recent.map(t => {
-    const s2 = S.subcategories?.find(x => x.id === t.subcategoryId);
-    const cat = S.categories.find(x => x.id === t.categoryId);
-    const acc = S.accounts.find(x => x.id === t.accountId);
-    const cur = acc ? S.currencies.find(x => x.id === acc.currencyId) : null;
-    const isEditing = editId === t.id;
-    const isConfirm = confirmDel === t.id;
-    return /*#__PURE__*/React.createElement("div", {
-      key: t.id
+  (() => {
+    const renderTxRow = t => {
+      const s2 = S.subcategories?.find(x => x.id === t.subcategoryId);
+      const cat = S.categories.find(x => x.id === t.categoryId);
+      const acc = S.accounts.find(x => x.id === t.accountId);
+      const cur = acc ? S.currencies.find(x => x.id === acc.currencyId) : null;
+      const isEditing = editId === t.id;
+      const isConfirm = confirmDel === t.id;
+      return /*#__PURE__*/React.createElement("div", {
+        key: t.id
+      }, /*#__PURE__*/React.createElement("div", {
+        style: {
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+          padding: "10px 0",
+          borderBottom: `1px solid ${C.border}`,
+          opacity: isEditing ? 0.4 : 1
+        }
+      }, /*#__PURE__*/React.createElement("span", {
+        style: {
+          fontSize: 16,
+          flexShrink: 0
+        }
+      }, s2?.icon || cat?.icon || "·"), /*#__PURE__*/React.createElement("div", {
+        style: {
+          flex: 1,
+          minWidth: 0
+        }
+      }, /*#__PURE__*/React.createElement("div", {
+        style: {
+          fontSize: 13,
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          whiteSpace: "nowrap"
+        }
+      }, t.note || s2?.name || cat?.name || "—"), /*#__PURE__*/React.createElement("div", {
+        style: {
+          fontSize: 11,
+          color: C.muted
+        }
+      }, fmtDate(t.date), " \xB7 ", acc?.name)), /*#__PURE__*/React.createElement("div", {
+        style: {
+          fontWeight: 500,
+          fontSize: 13,
+          color: t.type === "income" ? C.green : C.expense,
+          flexShrink: 0
+        }
+      }, t.type === "income" ? "+" : "-", fmt(t.amount, cur?.id || "BOB", S.currencies)), /*#__PURE__*/React.createElement("button", {
+        onClick: () => {
+          setEditId(null);
+          setEditForm(null);
+          setOpen(false);
+          startEdit(t);
+        },
+        style: {
+          border: "none",
+          background: "none",
+          cursor: "pointer",
+          fontSize: 14,
+          color: C.muted,
+          padding: "2px 4px",
+          flexShrink: 0
+        }
+      }, "\u270F\uFE0E"), /*#__PURE__*/React.createElement("button", {
+        onClick: () => setConfirmDel(isConfirm ? null : t.id),
+        style: {
+          border: "none",
+          background: "none",
+          cursor: "pointer",
+          fontSize: 14,
+          color: C.red,
+          padding: "2px 4px",
+          flexShrink: 0
+        }
+      }, "\uD83D\uDDD1")), isConfirm && /*#__PURE__*/React.createElement("div", {
+        style: {
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          padding: "8px 0",
+          borderBottom: `1px solid ${C.border}`
+        }
+      }, /*#__PURE__*/React.createElement("span", {
+        style: {
+          flex: 1,
+          fontSize: 12,
+          color: C.red
+        }
+      }, "\xBFEliminar este registro?"), /*#__PURE__*/React.createElement("button", {
+        onClick: () => deleteT(t.id),
+        style: {
+          border: "none",
+          background: C.red,
+          color: "#fff",
+          borderRadius: 6,
+          padding: "5px 14px",
+          fontSize: 12,
+          cursor: "pointer",
+          fontWeight: 600
+        }
+      }, "S\xED"), /*#__PURE__*/React.createElement("button", {
+        onClick: () => setConfirmDel(null),
+        style: {
+          border: `1px solid ${C.border}`,
+          background: "none",
+          borderRadius: 6,
+          padding: "5px 14px",
+          fontSize: 12,
+          cursor: "pointer",
+          color: C.text
+        }
+      }, "No")));
+    };
+
+    if (regPeriod === "year" && catGroups) {
+      const yearTot = catGroups.reduce((s, g) => s + g.total, 0);
+      return catGroups.length > 0 && /*#__PURE__*/React.createElement("div", {
+        style: st.card
+      }, /*#__PURE__*/React.createElement("div", {
+        style: { fontSize: 11, color: C.muted, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 14 }
+      }, sub === "expense" ? "Gastos por categoría" : "Ingresos por categoría", " \xB7 ", catGroups.length, " categor\xEDa", catGroups.length !== 1 ? "s" : "", " \xB7 en ", dc.code),
+      catGroups.map(g => {
+        const key = g.cat ? g.cat.id : "_none";
+        const isExp = expCat === key;
+        const color = g.cat?.color || C.muted;
+        return /*#__PURE__*/React.createElement("div", {
+          key: key,
+          style: { marginBottom: 14 }
+        }, /*#__PURE__*/React.createElement("div", {
+          onClick: () => setExpCat(v => v === key ? null : key),
+          style: { display: "flex", alignItems: "center", gap: 8, cursor: "pointer", marginBottom: 5 }
+        }, /*#__PURE__*/React.createElement("span", {
+          style: { fontSize: 16, flexShrink: 0 }
+        }, g.cat?.icon || "·"), /*#__PURE__*/React.createElement("span", {
+          style: { flex: 1, fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }
+        }, g.cat?.name || "Sin categoría"), /*#__PURE__*/React.createElement("span", {
+          style: { fontSize: 13, fontWeight: 500 }
+        }, fmt(g.total, dc.id, S.currencies), " ", /*#__PURE__*/React.createElement("span", {
+          style: { color: C.muted, fontSize: 11 }
+        }, "(", yearTot > 0 ? (g.total / yearTot * 100).toFixed(0) : 0, "%)")), /*#__PURE__*/React.createElement("span", {
+          style: { color: C.muted, fontSize: 10 }
+        }, isExp ? "\u25B2" : "\u25BC")),
+        /*#__PURE__*/React.createElement("div", {
+          style: { height: 3, borderRadius: 3, background: "#e8e6e1" }
+        }, /*#__PURE__*/React.createElement("div", {
+          style: { height: "100%", borderRadius: 3, background: color, width: yearTot > 0 ? `${g.total / yearTot * 100}%` : "0%" }
+        })),
+        isExp && /*#__PURE__*/React.createElement("div", {
+          style: { marginTop: 10, padding: "6px 10px", background: C.bg, borderRadius: 8 }
+        }, g.txs.slice().sort((a, b) => b.date.localeCompare(a.date)).map(renderTxRow)));
+      }));
+    }
+
+    return recent.length > 0 && /*#__PURE__*/React.createElement("div", {
+      style: st.card
     }, /*#__PURE__*/React.createElement("div", {
-      style: {
-        display: "flex",
-        alignItems: "center",
-        gap: 10,
-        padding: "10px 0",
-        borderBottom: `1px solid ${C.border}`,
-        opacity: isEditing ? 0.4 : 1
-      }
-    }, /*#__PURE__*/React.createElement("span", {
-      style: {
-        fontSize: 16,
-        flexShrink: 0
-      }
-    }, s2?.icon || cat?.icon || "·"), /*#__PURE__*/React.createElement("div", {
-      style: {
-        flex: 1,
-        minWidth: 0
-      }
-    }, /*#__PURE__*/React.createElement("div", {
-      style: {
-        fontSize: 13,
-        overflow: "hidden",
-        textOverflow: "ellipsis",
-        whiteSpace: "nowrap"
-      }
-    }, t.note || s2?.name || cat?.name || "—"), /*#__PURE__*/React.createElement("div", {
-      style: {
-        fontSize: 11,
-        color: C.muted
-      }
-    }, fmtDate(t.date), " \xB7 ", acc?.name)), /*#__PURE__*/React.createElement("div", {
-      style: {
-        fontWeight: 500,
-        fontSize: 13,
-        color: t.type === "income" ? C.green : C.expense,
-        flexShrink: 0
-      }
-    }, t.type === "income" ? "+" : "-", fmt(t.amount, cur?.id || "BOB", S.currencies)), /*#__PURE__*/React.createElement("button", {
-      onClick: () => {
-        setEditId(null);
-        setEditForm(null);
-        setOpen(false);
-        startEdit(t);
-      },
-      style: {
-        border: "none",
-        background: "none",
-        cursor: "pointer",
-        fontSize: 14,
-        color: C.muted,
-        padding: "2px 4px",
-        flexShrink: 0
-      }
-    }, "\u270F\uFE0E"), /*#__PURE__*/React.createElement("button", {
-      onClick: () => setConfirmDel(isConfirm ? null : t.id),
-      style: {
-        border: "none",
-        background: "none",
-        cursor: "pointer",
-        fontSize: 14,
-        color: C.red,
-        padding: "2px 4px",
-        flexShrink: 0
-      }
-    }, "\uD83D\uDDD1")), isConfirm && /*#__PURE__*/React.createElement("div", {
-      style: {
-        display: "flex",
-        alignItems: "center",
-        gap: 8,
-        padding: "8px 0",
-        borderBottom: `1px solid ${C.border}`
-      }
-    }, /*#__PURE__*/React.createElement("span", {
-      style: {
-        flex: 1,
-        fontSize: 12,
-        color: C.red
-      }
-    }, "\xBFEliminar este registro?"), /*#__PURE__*/React.createElement("button", {
-      onClick: () => deleteT(t.id),
-      style: {
-        border: "none",
-        background: C.red,
-        color: "#fff",
-        borderRadius: 6,
-        padding: "5px 14px",
-        fontSize: 12,
-        cursor: "pointer",
-        fontWeight: 600
-      }
-    }, "S\xED"), /*#__PURE__*/React.createElement("button", {
-      onClick: () => setConfirmDel(null),
-      style: {
-        border: `1px solid ${C.border}`,
-        background: "none",
-        borderRadius: 6,
-        padding: "5px 14px",
-        fontSize: 12,
-        cursor: "pointer",
-        color: C.text
-      }
-    }, "No")));
-  })));
+      style: { fontSize: 11, color: C.muted, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 14 }
+    }, sub === "expense" ? "Gastos" : "Ingresos", " \xB7 ", recent.length, " registro", recent.length !== 1 ? "s" : ""), recent.map(renderTxRow));
+  })());
 }
 function PieChart({ title, items, dcId, currencies }) {
   const [hovered, setHovered] = React.useState(null);
