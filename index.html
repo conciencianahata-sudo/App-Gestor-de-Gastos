@@ -1843,7 +1843,27 @@ function Inversiones({ S, dc, accBal, accBalIn, upd }) {
               disabled: !editAccForm.name.trim(),
               style: { ...st.btnPri, flex: 1, background: editAccForm.color }
             }, "Guardar")
-          )
+          ),
+          editAccForm.confirmDel
+            ? React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", background: "#fdf2f2", border: `1px solid ${C.red}33`, borderRadius: 8 } },
+                React.createElement("span", { style: { flex: 1, fontSize: 12, color: C.red, fontWeight: 500 } }, "¿Eliminar " + ea.name + " y todos sus movimientos?"),
+                React.createElement("button", {
+                  onClick: () => {
+                    upd(s => {
+                      s.accounts = s.accounts.filter(x => x.id !== editAccId);
+                      s.transactions = s.transactions.filter(t => t.accountId !== editAccId);
+                      s.transfers = s.transfers.filter(t => t.fromId !== editAccId && t.toId !== editAccId);
+                    });
+                    setEditAccId(null);
+                  },
+                  style: { border: "none", background: C.red, color: "#fff", borderRadius: 6, padding: "5px 14px", fontSize: 12, cursor: "pointer", fontWeight: 600 }
+                }, "Sí"),
+                React.createElement("button", { onClick: () => setEditAccForm(p => ({ ...p, confirmDel: false })), style: { border: `1px solid ${C.border}`, background: "none", borderRadius: 6, padding: "5px 14px", fontSize: 12, cursor: "pointer", color: C.text } }, "No")
+              )
+            : React.createElement("button", {
+                onClick: () => setEditAccForm(p => ({ ...p, confirmDel: true })),
+                style: { ...st.btn, color: C.red, borderColor: C.red, fontSize: 12, width: "100%", padding: "8px" }
+              }, "🗑 Eliminar cuenta")
         );
       })()
     ),
@@ -1889,7 +1909,7 @@ function Divisas({ S, upd, setModal }) {
             React.createElement("button", { onClick: () => setConfirmDel(confirmDel === cur.id ? null : cur.id), title: "Eliminar", style: { border: "none", background: "none", cursor: "pointer", color: C.red, fontSize: 14, padding: "2px 4px" } }, "🗑")
           ),
           confirmDel === cur.id && React.createElement("div", { style: { padding: "10px 12px", marginBottom: 8, background: "#fdf2f2", border: `1px solid ${C.red}33`, borderRadius: 8, display: "flex", alignItems: "center", gap: 8 } },
-            React.createElement("span", { style: { flex: 1, fontSize: 12, color: C.red } }, "¿Eliminar \"", cur.name, "\"? Las cuentas que la usan quedarán sin divisa."),
+            React.createElement("span", { style: { flex: 1, fontSize: 12, color: C.red } }, "¿Eliminar " + cur.name + "? Las cuentas que la usan quedarán sin divisa."),
             React.createElement("button", { onClick: () => deleteCur(cur.id), style: { border: "none", background: C.red, color: "#fff", borderRadius: 6, padding: "5px 14px", fontSize: 12, cursor: "pointer", fontWeight: 600 } }, "Sí"),
             React.createElement("button", { onClick: () => setConfirmDel(null), style: { border: `1px solid ${C.border}`, background: "none", borderRadius: 6, padding: "5px 14px", fontSize: 12, cursor: "pointer", color: C.text } }, "No")
           )
