@@ -1636,10 +1636,73 @@ function CompareChart({ d1, d2, y1, y2, dcId, currencies }) {
 }
 function InvMovRow({ t, S, accs, upd }) {
   const [confirmDel, setConfirmDel] = React.useState(false);
+  const [editing, setEditing] = React.useState(false);
+  const [editForm, setEditForm] = React.useState(null);
   const s2 = S.subcategories?.find(x => x.id === t.subcategoryId);
   const cat = S.categories.find(c => c.id === t.categoryId);
   const acc = S.accounts.find(a => a.id === t.accountId);
   const cur = acc ? S.currencies.find(c => c.id === acc.currencyId) : null;
+
+  const startEdit = () => {
+    setEditForm({
+      amount: String(t.amount),
+      note: t.note || "",
+      date: t.date,
+      type: t.type
+    });
+    setEditing(true);
+    setConfirmDel(false);
+  };
+  const saveEdit = () => {
+    const n = parseFloat(editForm.amount);
+    if (!n || n <= 0) return;
+    upd(s => {
+      const tx = s.transactions.find(x => x.id === t.id);
+      if (!tx) return;
+      tx.amount = n;
+      tx.note = editForm.note;
+      tx.date = editForm.date;
+      tx.type = editForm.type;
+    });
+    setEditing(false);
+    setEditForm(null);
+  };
+
+  if (editing && editForm) {
+    return React.createElement("div", { style: { padding: "12px 0", borderBottom: `1px solid ${C.border}`, display: "flex", flexDirection: "column", gap: 10 } },
+      React.createElement("div", { style: { display: "flex", gap: 6 } },
+        React.createElement("button", {
+          onClick: () => setEditForm(p => ({ ...p, type: "income" })),
+          style: { flex: 1, border: "none", padding: "7px", fontSize: 12, cursor: "pointer", borderRadius: 6, fontWeight: editForm.type === "income" ? 600 : 400, background: editForm.type === "income" ? C.green + "22" : C.bg, color: editForm.type === "income" ? C.green : C.muted }
+        }, "Ingreso"),
+        React.createElement("button", {
+          onClick: () => setEditForm(p => ({ ...p, type: "expense" })),
+          style: { flex: 1, border: "none", padding: "7px", fontSize: 12, cursor: "pointer", borderRadius: 6, fontWeight: editForm.type === "expense" ? 600 : 400, background: editForm.type === "expense" ? C.expense + "22" : C.bg, color: editForm.type === "expense" ? C.expense : C.muted }
+        }, "Egreso")
+      ),
+      React.createElement("div", null,
+        React.createElement("label", { style: st.label }, "Monto"),
+        React.createElement("input", { autoFocus: true, type: "number", value: editForm.amount, onChange: e => setEditForm(p => ({ ...p, amount: e.target.value })), step: "any", style: { ...st.input, fontSize: 18, fontWeight: 300 } })
+      ),
+      React.createElement("div", null,
+        React.createElement("label", { style: st.label }, "Nota"),
+        React.createElement("input", { value: editForm.note, onChange: e => setEditForm(p => ({ ...p, note: e.target.value })), placeholder: "Descripción…", style: st.input })
+      ),
+      React.createElement("div", null,
+        React.createElement("label", { style: st.label }, "Fecha"),
+        React.createElement("input", { type: "date", value: editForm.date, onChange: e => setEditForm(p => ({ ...p, date: e.target.value })), style: { ...st.input, width: 160, colorScheme: C.bg === "#141414" ? "dark" : "light" } })
+      ),
+      React.createElement("div", { style: { display: "flex", gap: 8 } },
+        React.createElement("button", { onClick: () => setEditing(false), style: { ...st.btn, flex: 1 } }, "Cancelar"),
+        React.createElement("button", {
+          onClick: saveEdit,
+          disabled: !editForm.amount || parseFloat(editForm.amount) <= 0,
+          style: { ...st.btnPri, flex: 1, opacity: (!editForm.amount || parseFloat(editForm.amount) <= 0) ? 0.4 : 1, background: editForm.type === "income" ? C.green : C.expense }
+        }, "Guardar")
+      )
+    );
+  }
+
   return React.createElement("div", null,
     React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10, padding: "9px 0", borderBottom: confirmDel ? "none" : `1px solid ${C.border}` } },
       React.createElement("span", { style: { fontSize: 15 } }, s2?.icon || cat?.icon || "💰"),
@@ -1648,6 +1711,7 @@ function InvMovRow({ t, S, accs, upd }) {
         React.createElement("div", { style: { fontSize: 11, color: C.muted } }, fmtDate(t.date), accs.length > 1 ? ` · ${acc?.name || ""}` : "")
       ),
       React.createElement("div", { style: { fontWeight: 500, fontSize: 13, color: t.type === "income" ? C.green : C.expense } }, t.type === "income" ? "+" : "-", fmt(t.amount, cur?.id || "BOB", S.currencies)),
+      React.createElement("button", { onClick: startEdit, style: { border: "none", background: "none", cursor: "pointer", fontSize: 14, color: C.muted, padding: "2px 4px", flexShrink: 0 } }, "✏︎"),
       React.createElement("button", { onClick: () => setConfirmDel(o => !o), style: { border: "none", background: "none", cursor: "pointer", fontSize: 14, color: C.red, padding: "2px 4px", flexShrink: 0 } }, "🗑")
     ),
     confirmDel && React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, padding: "8px 0", borderBottom: `1px solid ${C.border}` } },
