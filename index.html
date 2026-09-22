@@ -1737,6 +1737,8 @@ function Inversiones({ S, dc, accBal, accBalIn, upd }) {
   const [selAccId, setSelAccId] = React.useState(null);
   const [showCapModal, setShowCapModal] = React.useState(false);
   const [capForm, setCapForm] = React.useState({ accId: "", newAmt: "" });
+  const [editAccId, setEditAccId] = React.useState(null);
+  const [editAccForm, setEditAccForm] = React.useState({ name: "", color: "" });
   const saveCapital = () => {
     const acc = S.accounts.find(a => a.id === capForm.accId);
     if (!acc) return;
@@ -1800,13 +1802,50 @@ function Inversiones({ S, dc, accBal, accBalIn, upd }) {
         invAccs.map(a => {
           const cur = S.currencies.find(c => c.id === a.currencyId);
           const raw = accBal(a.id); const isSel = selAccId === a.id;
-          return React.createElement("button", { key: a.id, onClick: () => setSelAccId(s => s === a.id ? null : a.id), style: { border: `1px solid ${isSel ? a.color : C.border}`, borderRadius: 20, padding: "6px 14px", fontSize: 12, cursor: "pointer", background: isSel ? a.color + "18" : "none", color: isSel ? a.color : C.muted, fontWeight: isSel ? 600 : 400, display: "flex", alignItems: "center", gap: 6 } },
-            React.createElement("span", { style: { width: 8, height: 8, borderRadius: "50%", background: a.color, flexShrink: 0 } }),
-            a.name,
-            React.createElement("span", { style: { fontSize: 11, opacity: 0.75 } }, fmt(raw, cur?.id || dcId, S.currencies))
+          return React.createElement("div", { key: a.id, style: { display: "flex", alignItems: "center", gap: 2 } },
+            React.createElement("button", { onClick: () => setSelAccId(s => s === a.id ? null : a.id), style: { border: `1px solid ${isSel ? a.color : C.border}`, borderRadius: 20, padding: "6px 14px", fontSize: 12, cursor: "pointer", background: isSel ? a.color + "18" : "none", color: isSel ? a.color : C.muted, fontWeight: isSel ? 600 : 400, display: "flex", alignItems: "center", gap: 6 } },
+              React.createElement("span", { style: { width: 8, height: 8, borderRadius: "50%", background: a.color, flexShrink: 0 } }),
+              a.name,
+              React.createElement("span", { style: { fontSize: 11, opacity: 0.75 } }, fmt(raw, cur?.id || dcId, S.currencies))
+            ),
+            React.createElement("button", {
+              onClick: e => { e.stopPropagation(); setEditAccId(a.id); setEditAccForm({ name: a.name, color: a.color }); },
+              title: "Editar",
+              style: { border: "none", background: "none", cursor: "pointer", fontSize: 12, color: C.muted, padding: "2px 4px", lineHeight: 1 }
+            }, "✏︎")
           );
         })
-      )
+      ),
+      // Mini modal edición inline
+      editAccId && (() => {
+        const ea = S.accounts.find(x => x.id === editAccId);
+        if (!ea) return null;
+        return React.createElement("div", { style: { marginTop: 14, padding: "14px", background: C.bg, borderRadius: 8, border: `1px solid ${C.border}`, display: "flex", flexDirection: "column", gap: 12 } },
+          React.createElement("div", { style: { fontSize: 12, fontWeight: 500, color: C.text, marginBottom: 2 } }, "Editar cuenta: ", ea.name),
+          React.createElement("div", null,
+            React.createElement("label", { style: st.label }, "Nombre"),
+            React.createElement("input", { value: editAccForm.name, onChange: e => setEditAccForm(p => ({ ...p, name: e.target.value })), style: st.input, autoFocus: true })
+          ),
+          React.createElement("div", null,
+            React.createElement("label", { style: st.label }, "Color"),
+            React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 5, marginTop: 4 } },
+              COLORS.map(c => React.createElement("button", { key: c, onClick: () => setEditAccForm(p => ({ ...p, color: c })), style: { width: 24, height: 24, borderRadius: "50%", background: c, border: editAccForm.color === c ? "3px solid " + C.text : "2px solid transparent", cursor: "pointer" } }))
+            )
+          ),
+          React.createElement("div", { style: { display: "flex", gap: 8 } },
+            React.createElement("button", { onClick: () => setEditAccId(null), style: { ...st.btn, flex: 1 } }, "Cancelar"),
+            React.createElement("button", {
+              onClick: () => {
+                if (!editAccForm.name.trim()) return;
+                upd(s => { const acc = s.accounts.find(x => x.id === editAccId); if (acc) { acc.name = editAccForm.name.trim(); acc.color = editAccForm.color; } });
+                setEditAccId(null);
+              },
+              disabled: !editAccForm.name.trim(),
+              style: { ...st.btnPri, flex: 1, background: editAccForm.color }
+            }, "Guardar")
+          )
+        );
+      })()
     ),
     React.createElement(InvStats, { S, dc, accBal, accBalIn, upd, accs: activeAccs, label: selAcc ? selAcc.name : "Todas", color: selAcc ? selAcc.color : C.blue })
   );
