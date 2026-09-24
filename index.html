@@ -797,7 +797,7 @@ function Panel({ S, dc, accBal, accBalIn, totalBal }) {
   // FIX: exclude investment accounts in addition to excludeBalance accounts
   const isExcl = t => {
     const acc = S.accounts.find(a => a.id === t.accountId);
-    if (acc?.excludeBalance || acc?.isInvestment) return true;
+    if (acc?.isInvestment) return true;
     if (t.note === "Ajuste de saldo" || t.note === "Actualización de capital") return true;
     return false;
   };
