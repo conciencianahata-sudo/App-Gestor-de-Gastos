@@ -569,7 +569,8 @@ function Registro({ S, upd, dc }) {
   };
   const regRange = getRegRange();
   const recent = [...S.transactions].filter(t => {
-    if (t.type !== sub || t.note === "Ajuste de saldo") return false;
+    if (t.type !== sub) return false;
+    if (t.note === "Ajuste de saldo" || t.note === "Actualización de capital") return false;
     const acc = S.accounts.find(a => a.id === t.accountId);
     if (acc?.isInvestment) return false;
     if (!regRange) return true;
@@ -609,16 +610,13 @@ function Registro({ S, upd, dc }) {
         React.createElement("div", { style: { fontSize: 26, fontWeight: 300, color: sub === "expense" ? C.expense : C.green, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
           (() => {
             if (recent.length === 0) {
-              const defCur = S.currencies.find(c => c.id === (S.accounts.find(a => a.id === S.defaultAccountId)?.currencyId)) || S.currencies[0];
-              return (defCur?.symbol || "") + "0.00";
+              return fmt(0, dc.id, S.currencies);
             }
-            const byCur = {};
-            recent.forEach(t => {
+            const total = recent.reduce((sum, t) => {
               const acc = S.accounts.find(a => a.id === t.accountId);
-              const cid = acc?.currencyId || S.currencies[0]?.id || "BOB";
-              byCur[cid] = (byCur[cid] || 0) + t.amount;
-            });
-            return Object.keys(byCur).map(cid => fmt(byCur[cid], cid, S.currencies)).join("  +  ");
+              return sum + (acc ? cvt(t.amount, acc.currencyId, dc.id, S.currencies) : t.amount);
+            }, 0);
+            return fmt(total, dc.id, S.currencies);
           })()
         )
       ),
@@ -799,7 +797,9 @@ function Panel({ S, dc, accBal, accBalIn, totalBal }) {
   // FIX: exclude investment accounts in addition to excludeBalance accounts
   const isExcl = t => {
     const acc = S.accounts.find(a => a.id === t.accountId);
-    return acc?.excludeBalance || acc?.isInvestment;
+    if (acc?.excludeBalance || acc?.isInvestment) return true;
+    if (t.note === "Ajuste de saldo" || t.note === "Actualización de capital") return true;
+    return false;
   };
 
   const cv = t => {
