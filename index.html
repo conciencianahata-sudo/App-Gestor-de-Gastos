@@ -1378,9 +1378,43 @@ function Presupuesto({ S, upd, setModal, dc }) {
           React.createElement("div", { style: { height: 5, borderRadius: 5, background: "#e8e6e1" } },
             React.createElement("div", { style: { height: "100%", borderRadius: 5, width: `${pct}%`, background: barColor, transition: "width 0.3s" } })
           ),
-          React.createElement("div", { style: { marginTop: 7, fontSize: 11, color: over ? C.red : remaining <= 0.1 * b.amount ? "#c47c1a" : C.muted } },
+          React.createElement("div", { style: { marginTop: 7, marginBottom: 10, fontSize: 11, color: over ? C.red : remaining <= 0.1 * b.amount ? "#c47c1a" : C.muted } },
             over ? `⚠ Superado en ${fmt(spent - b.amount, bcId, S.currencies)}` : `Disponible: ${fmt(remaining, bcId, S.currencies)}`
-          )
+          ),
+          // Drill-down: transactions of this budget category in the current period
+          (() => {
+            const txs = S.transactions.filter(t => {
+              if (t.type !== "expense") return false;
+              if (t.note === "Ajuste de saldo" || t.note === "Actualización de capital") return false;
+              const acc = S.accounts.find(a => a.id === t.accountId);
+              if (acc?.isInvestment) return false;
+              if (t.categoryId !== b.categoryId) return false;
+              return b.period === "weekly" ? t.date >= wFrom && t.date <= wTo
+                   : b.period === "monthly" ? t.date.startsWith(m)
+                   : t.date.startsWith(y);
+            }).sort((a, b) => b.date.localeCompare(a.date));
+            if (txs.length === 0) return null;
+            return React.createElement("div", { style: { border: `1px solid ${cat.color}33`, borderRadius: 8, overflow: "hidden" } },
+              React.createElement("div", { style: { fontSize: 10, color: C.muted, textTransform: "uppercase", letterSpacing: "0.04em", padding: "8px 12px", borderBottom: `1px solid ${C.border}`, background: cat.color + "08" } },
+                txs.length, " registro", txs.length !== 1 ? "s" : ""
+              ),
+              txs.map((t, i) => {
+                const acc = S.accounts.find(a => a.id === t.accountId);
+                const cur = acc ? S.currencies.find(c => c.id === acc.currencyId) : null;
+                const sub = S.subcategories?.find(x => x.id === t.subcategoryId);
+                return React.createElement("div", { key: t.id, style: { display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", borderBottom: i < txs.length - 1 ? `1px solid ${C.border}` : "none", background: C.surface } },
+                  React.createElement("span", { style: { fontSize: 14, flexShrink: 0 } }, sub?.icon || cat.icon),
+                  React.createElement("div", { style: { flex: 1, minWidth: 0 } },
+                    React.createElement("div", { style: { fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, t.note || sub?.name || cat.name),
+                    React.createElement("div", { style: { fontSize: 11, color: C.muted } }, fmtDate(t.date), acc ? " · " + acc.name : "")
+                  ),
+                  React.createElement("div", { style: { fontSize: 13, fontWeight: 500, color: C.expense, flexShrink: 0 } },
+                    "-", fmt(t.amount, cur?.id || bcId, S.currencies)
+                  )
+                );
+              })
+            );
+          })()
         )
       );
     })
