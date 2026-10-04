@@ -1449,6 +1449,7 @@ function CatReport({ catData, y1, setY1, years, dcId, S }) {
   const [period, setPeriod] = React.useState("monthly");
   const [selMonth, setSelMonth] = React.useState(today().slice(0, 7));
   const [selWeek, setSelWeek] = React.useState(today());
+  const [expandedCat, setExpandedCat] = React.useState(null);
 
   const getRange = () => {
     if (period === "weekly") {
@@ -1468,63 +1469,106 @@ function CatReport({ catData, y1, setY1, years, dcId, S }) {
   const items = catData(from, to);
   const tot = items.reduce((s, x) => s + x.total, 0);
 
+  // Get transactions for a category in the current range
+  const getCatTxs = (catId) => {
+    return S.transactions.filter(t => {
+      if (t.type !== "expense") return false;
+      if (t.note === "Ajuste de saldo" || t.note === "Actualización de capital") return false;
+      const acc = S.accounts.find(a => a.id === t.accountId);
+      if (acc?.isInvestment) return false;
+      if (t.categoryId !== catId) return false;
+      return t.date >= from && t.date <= to;
+    }).sort((a, b) => b.date.localeCompare(a.date));
+  };
+
   return React.createElement("div", { style: st.card },
     React.createElement("div", { style: { display: "flex", alignItems: "center", marginBottom: 16, flexWrap: "wrap", gap: 8 } },
       React.createElement("span", { style: { fontWeight: 500 } }, "Egresos por categoría"),
       React.createElement("div", { style: { display: "flex", background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden", marginLeft: "auto" } },
         [["weekly","Sem"],["monthly","Mes"],["annual","Año"]].map(([id, lbl]) =>
-          React.createElement("button", { key: id, onClick: () => setPeriod(id),
+          React.createElement("button", { key: id, onClick: () => { setPeriod(id); setExpandedCat(null); },
             style: { border: "none", padding: "6px 12px", fontSize: 12, cursor: "pointer", fontWeight: period === id ? 500 : 400, background: period === id ? C.accent : C.btnBg, color: period === id ? C.bg : C.text }
           }, lbl)
         )
       )
     ),
     period === "weekly" && React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 16 } },
-      React.createElement("button", { onClick: () => { const d = new Date(selWeek+"T12:00:00"); d.setDate(d.getDate()-7); setSelWeek(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`); }, style: { ...st.btn, padding: "6px 12px", fontSize: 15 } }, "‹"),
+      React.createElement("button", { onClick: () => { const d = new Date(selWeek+"T12:00:00"); d.setDate(d.getDate()-7); setSelWeek(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`); setExpandedCat(null); }, style: { ...st.btn, padding: "6px 12px", fontSize: 15 } }, "‹"),
       React.createElement("div", { style: { flex: 1, position: "relative" } },
-        React.createElement("input", { type: "date", value: selWeek, onChange: e => setSelWeek(e.target.value), style: { ...st.input, position: "absolute", inset: 0, opacity: 0, cursor: "pointer", zIndex: 2, padding: 0, margin: 0, colorScheme: C.bg === "#141414" ? "dark" : "light" } }),
+        React.createElement("input", { type: "date", value: selWeek, onChange: e => { setSelWeek(e.target.value); setExpandedCat(null); }, style: { ...st.input, position: "absolute", inset: 0, opacity: 0, cursor: "pointer", zIndex: 2, padding: 0, margin: 0, colorScheme: C.bg === "#141414" ? "dark" : "light" } }),
         React.createElement("div", { style: { ...st.input, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 500, fontSize: 13, pointerEvents: "none" } }, label)
       ),
-      React.createElement("button", { onClick: () => { const d = new Date(selWeek+"T12:00:00"); d.setDate(d.getDate()+7); setSelWeek(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`); }, style: { ...st.btn, padding: "6px 12px", fontSize: 15 } }, "›")
+      React.createElement("button", { onClick: () => { const d = new Date(selWeek+"T12:00:00"); d.setDate(d.getDate()+7); setSelWeek(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`); setExpandedCat(null); }, style: { ...st.btn, padding: "6px 12px", fontSize: 15 } }, "›")
     ),
     period === "monthly" && React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 16 } },
-      React.createElement("button", { onClick: () => { const [y,m] = selMonth.split("-").map(Number); const d = new Date(y,m-2,1); setSelMonth(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`); }, style: { ...st.btn, padding: "6px 12px", fontSize: 15 } }, "‹"),
+      React.createElement("button", { onClick: () => { const [y,m] = selMonth.split("-").map(Number); const d = new Date(y,m-2,1); setSelMonth(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`); setExpandedCat(null); }, style: { ...st.btn, padding: "6px 12px", fontSize: 15 } }, "‹"),
       React.createElement("div", { style: { flex: 1, position: "relative" } },
-        React.createElement("input", { type: "month", value: selMonth, onChange: e => setSelMonth(e.target.value), style: { ...st.input, position: "absolute", inset: 0, opacity: 0, cursor: "pointer", zIndex: 2, padding: 0, margin: 0, colorScheme: C.bg === "#141414" ? "dark" : "light" } }),
+        React.createElement("input", { type: "month", value: selMonth, onChange: e => { setSelMonth(e.target.value); setExpandedCat(null); }, style: { ...st.input, position: "absolute", inset: 0, opacity: 0, cursor: "pointer", zIndex: 2, padding: 0, margin: 0, colorScheme: C.bg === "#141414" ? "dark" : "light" } }),
         React.createElement("div", { style: { ...st.input, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 500, fontSize: 13, pointerEvents: "none" } }, label)
       ),
-      React.createElement("button", { onClick: () => { const [y,m] = selMonth.split("-").map(Number); const d = new Date(y,m,1); setSelMonth(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`); }, style: { ...st.btn, padding: "6px 12px", fontSize: 15 } }, "›")
+      React.createElement("button", { onClick: () => { const [y,m] = selMonth.split("-").map(Number); const d = new Date(y,m,1); setSelMonth(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`); setExpandedCat(null); }, style: { ...st.btn, padding: "6px 12px", fontSize: 15 } }, "›")
     ),
     period === "annual" && React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 16 } },
-      React.createElement("button", { onClick: () => setY1(y => String(parseInt(y)-1)), style: { ...st.btn, padding: "6px 12px", fontSize: 15 } }, "‹"),
+      React.createElement("button", { onClick: () => { setY1(y => String(parseInt(y)-1)); setExpandedCat(null); }, style: { ...st.btn, padding: "6px 12px", fontSize: 15 } }, "‹"),
       React.createElement("div", { style: { flex: 1, position: "relative" } },
-        React.createElement("select", { value: y1, onChange: e => setY1(e.target.value), style: { ...st.select, position: "absolute", inset: 0, opacity: 0, cursor: "pointer", zIndex: 2, padding: 0, margin: 0, height: "100%", colorScheme: C.bg === "#141414" ? "dark" : "light" } },
+        React.createElement("select", { value: y1, onChange: e => { setY1(e.target.value); setExpandedCat(null); }, style: { ...st.select, position: "absolute", inset: 0, opacity: 0, cursor: "pointer", zIndex: 2, padding: 0, margin: 0, height: "100%", colorScheme: C.bg === "#141414" ? "dark" : "light" } },
           years.map(y => React.createElement("option", { key: y, value: y }, y))
         ),
         React.createElement("div", { style: { ...st.input, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 500, fontSize: 13, pointerEvents: "none" } }, y1)
       ),
-      React.createElement("button", { onClick: () => setY1(y => String(parseInt(y)+1)), style: { ...st.btn, padding: "6px 12px", fontSize: 15 } }, "›")
+      React.createElement("button", { onClick: () => { setY1(y => String(parseInt(y)+1)); setExpandedCat(null); }, style: { ...st.btn, padding: "6px 12px", fontSize: 15 } }, "›")
     ),
     items.length === 0
       ? React.createElement("div", { style: { fontSize: 13, color: C.muted, textAlign: "center", padding: "20px 0" } }, "Sin datos en este período")
-      : items.map(({ cat, total }) =>
-          React.createElement("div", { key: cat.id, style: { marginBottom: 14 } },
-            React.createElement("div", { style: { display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 5 } },
-              React.createElement("span", { style: { display: "flex", alignItems: "center", gap: 6 } },
-                React.createElement("div", { style: st.dot(cat.color) }), cat.icon, " ", cat.name
+      : items.map(({ cat, total }) => {
+          const isExpanded = expandedCat === cat.id;
+          const txs = isExpanded ? getCatTxs(cat.id) : [];
+          return React.createElement("div", { key: cat.id, style: { marginBottom: 4 } },
+            // Category row — clickable
+            React.createElement("div", {
+              onClick: () => setExpandedCat(isExpanded ? null : cat.id),
+              style: { cursor: "pointer", padding: "10px 8px", borderRadius: 6, background: isExpanded ? cat.color + "10" : "transparent", transition: "background 0.15s" }
+            },
+              React.createElement("div", { style: { display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 5 } },
+                React.createElement("span", { style: { display: "flex", alignItems: "center", gap: 6 } },
+                  React.createElement("span", { style: { fontSize: 16 } }, cat.icon),
+                  React.createElement("span", { style: { fontWeight: isExpanded ? 600 : 400, color: isExpanded ? cat.color : C.text } }, cat.name)
+                ),
+                React.createElement("span", { style: { display: "flex", alignItems: "center", gap: 8 } },
+                  React.createElement("span", { style: { fontWeight: 500, color: isExpanded ? cat.color : C.text } }, fmt(total, dcId, S.currencies)),
+                  React.createElement("span", { style: { color: C.muted, fontSize: 11 } }, "(", tot > 0 ? (total / tot * 100).toFixed(0) : 0, "%)"),
+                  React.createElement("span", { style: { color: C.muted, fontSize: 11 } }, isExpanded ? "▲" : "▼")
+                )
               ),
-              React.createElement("span", null,
-                fmt(total, dcId, S.currencies), " ",
-                React.createElement("span", { style: { color: C.muted } }, "(", tot > 0 ? (total / tot * 100).toFixed(0) : 0, "%)")
+              React.createElement("div", { style: { height: 3, borderRadius: 3, background: C.border } },
+                React.createElement("div", { style: { height: "100%", borderRadius: 3, background: cat.color, width: tot > 0 ? `${total / tot * 100}%` : "0%", transition: "width 0.3s" } })
               )
             ),
-            React.createElement("div", { style: { height: 3, borderRadius: 3, background: C.border } },
-              React.createElement("div", { style: { height: "100%", borderRadius: 3, background: cat.color, width: tot > 0 ? `${total / tot * 100}%` : "0%" } })
+            // Expanded transactions
+            isExpanded && React.createElement("div", { style: { marginLeft: 8, marginBottom: 8, border: `1px solid ${cat.color}33`, borderRadius: 8, overflow: "hidden" } },
+              txs.length === 0
+                ? React.createElement("div", { style: { padding: "12px 14px", fontSize: 12, color: C.muted } }, "Sin registros individuales en este período")
+                : txs.map((t, i) => {
+                    const acc = S.accounts.find(a => a.id === t.accountId);
+                    const cur = acc ? S.currencies.find(c => c.id === acc.currencyId) : null;
+                    const sub = S.subcategories?.find(x => x.id === t.subcategoryId);
+                    return React.createElement("div", { key: t.id, style: { display: "flex", alignItems: "center", gap: 10, padding: "9px 14px", borderBottom: i < txs.length - 1 ? `1px solid ${C.border}` : "none", background: C.surface } },
+                      React.createElement("span", { style: { fontSize: 14 } }, sub?.icon || cat.icon),
+                      React.createElement("div", { style: { flex: 1, minWidth: 0 } },
+                        React.createElement("div", { style: { fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, t.note || sub?.name || cat.name),
+                        React.createElement("div", { style: { fontSize: 11, color: C.muted } }, fmtDate(t.date), acc ? " · " + acc.name : "")
+                      ),
+                      React.createElement("div", { style: { fontSize: 13, fontWeight: 500, color: C.expense, flexShrink: 0 } },
+                        "-", fmt(t.amount, cur?.id || "BOB", S.currencies)
+                      )
+                    );
+                  })
             )
-          )
-        )
+          );
+        })
   );
 }
+
 
 function CustomReport({ S, from, setFrom, to, setTo, isExcl, cv, catData, dcId }) {
   const txs = from && to ? S.transactions.filter(t => t.date >= from && t.date <= to && !isExcl(t)) : [];
