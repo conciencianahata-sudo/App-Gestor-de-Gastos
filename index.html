@@ -1297,19 +1297,77 @@ function Presupuesto({ S, upd, setModal, dc }) {
   const [editId, setEditId] = React.useState(null);
   const [editForm, setEditForm] = React.useState(null);
   const now = new Date();
-  const m = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-  const y = now.getFullYear().toString();
-  const wDay = now.getDay() || 7;
-  const wStart = new Date(now); wStart.setDate(now.getDate() - wDay + 1);
-  const wFrom = wStart.toISOString().split("T")[0];
-  const wTo = now.toISOString().split("T")[0];
+  const [selMonth, setSelMonth] = React.useState(`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}`);
+  const [selWeek, setSelWeek] = React.useState(today());
+  const [selYear, setSelYear] = React.useState(now.getFullYear().toString());
+
+  // Compute ranges from selected values
+  const m = selMonth;
+  const y = selYear;
+  const wDay2 = new Date(selWeek+"T12:00:00").getDay() || 7;
+  const wStart2 = new Date(selWeek+"T12:00:00"); wStart2.setDate(wStart2.getDate() - wDay2 + 1);
+  const wFrom = wStart2.toISOString().split("T")[0];
+  const wEnd2 = new Date(wStart2); wEnd2.setDate(wStart2.getDate()+6);
+  const wTo = wEnd2.toISOString().split("T")[0];
+
   const startEdit = b => { setEditId(b.id); setEditForm({ categoryId: b.categoryId, period: b.period, amount: String(b.amount), currencyId: b.currencyId || dc.id }); };
   const saveEdit = () => {
     upd(s => { const x = s.budgets.find(x => x.id === editId); if (x) { x.categoryId = editForm.categoryId; x.period = editForm.period; x.amount = parseFloat(editForm.amount); x.currencyId = editForm.currencyId; } });
     setEditId(null); setEditForm(null);
   };
   const fe = k => v => setEditForm(p => ({ ...p, [k]: v }));
+
+  // Determine which picker to show based on budgets present
+  const periods = [...new Set(S.budgets.map(b => b.period))];
+  const hasWeekly = periods.includes("weekly");
+  const hasMonthly = periods.includes("monthly");
+  const hasAnnual = periods.includes("annual");
+
+  const monthLabel = (() => { const [yr,mo] = selMonth.split("-").map(Number); return ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"][mo-1] + " " + yr; })();
+  const weekLabel = (() => {
+    const d1 = new Date(wFrom+"T12:00:00"); const d2 = new Date(wTo+"T12:00:00");
+    return `${d1.getDate()}/${d1.getMonth()+1} – ${d2.getDate()}/${d2.getMonth()+1}`;
+  })();
+
   return React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 12 } },
+    // Period pickers
+    (hasWeekly || hasMonthly || hasAnnual) && React.createElement("div", { style: { ...st.card, padding: "14px 16px", display: "flex", flexDirection: "column", gap: 10 } },
+      hasMonthly && React.createElement("div", null,
+        React.createElement("div", { style: { fontSize: 11, color: C.muted, textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 6 } }, "Período mensual"),
+        React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8 } },
+          React.createElement("button", { onClick: () => { const [yr,mo] = selMonth.split("-").map(Number); const d = new Date(yr,mo-2,1); setSelMonth(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`); }, style: { ...st.btn, padding: "6px 12px", fontSize: 15 } }, "‹"),
+          React.createElement("div", { style: { flex: 1, position: "relative" } },
+            React.createElement("input", { type: "month", value: selMonth, onChange: e => setSelMonth(e.target.value), style: { ...st.input, position: "absolute", inset: 0, opacity: 0, cursor: "pointer", zIndex: 2, padding: 0, margin: 0, colorScheme: C.bg === "#141414" ? "dark" : "light" } }),
+            React.createElement("div", { style: { ...st.input, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 500, fontSize: 13, pointerEvents: "none" } }, monthLabel)
+          ),
+          React.createElement("button", { onClick: () => { const [yr,mo] = selMonth.split("-").map(Number); const d = new Date(yr,mo,1); setSelMonth(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`); }, style: { ...st.btn, padding: "6px 12px", fontSize: 15 } }, "›")
+        )
+      ),
+      hasWeekly && React.createElement("div", null,
+        React.createElement("div", { style: { fontSize: 11, color: C.muted, textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 6 } }, "Período semanal"),
+        React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8 } },
+          React.createElement("button", { onClick: () => { const d = new Date(selWeek+"T12:00:00"); d.setDate(d.getDate()-7); setSelWeek(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`); }, style: { ...st.btn, padding: "6px 12px", fontSize: 15 } }, "‹"),
+          React.createElement("div", { style: { flex: 1, position: "relative" } },
+            React.createElement("input", { type: "date", value: selWeek, onChange: e => setSelWeek(e.target.value), style: { ...st.input, position: "absolute", inset: 0, opacity: 0, cursor: "pointer", zIndex: 2, padding: 0, margin: 0, colorScheme: C.bg === "#141414" ? "dark" : "light" } }),
+            React.createElement("div", { style: { ...st.input, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 500, fontSize: 13, pointerEvents: "none" } }, weekLabel)
+          ),
+          React.createElement("button", { onClick: () => { const d = new Date(selWeek+"T12:00:00"); d.setDate(d.getDate()+7); setSelWeek(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`); }, style: { ...st.btn, padding: "6px 12px", fontSize: 15 } }, "›")
+        )
+      ),
+      hasAnnual && React.createElement("div", null,
+        React.createElement("div", { style: { fontSize: 11, color: C.muted, textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 6 } }, "Período anual"),
+        React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8 } },
+          React.createElement("button", { onClick: () => setSelYear(y => String(parseInt(y)-1)), style: { ...st.btn, padding: "6px 12px", fontSize: 15 } }, "‹"),
+          React.createElement("div", { style: { flex: 1, position: "relative" } },
+            React.createElement("select", { value: selYear, onChange: e => setSelYear(e.target.value), style: { ...st.select, position: "absolute", inset: 0, opacity: 0, cursor: "pointer", zIndex: 2, padding: 0, margin: 0, height: "100%" } },
+              Array.from({ length: 10 }, (_, i) => (now.getFullYear()+1-i).toString()).map(yr => React.createElement("option", { key: yr, value: yr }, yr))
+            ),
+            React.createElement("div", { style: { ...st.input, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 500, fontSize: 13, pointerEvents: "none" } }, selYear)
+          ),
+          React.createElement("button", { onClick: () => setSelYear(y => String(parseInt(y)+1)), style: { ...st.btn, padding: "6px 12px", fontSize: 15 } }, "›")
+        )
+      )
+    ),
     React.createElement("div", { style: { display: "flex", justifyContent: "flex-end" } },
       React.createElement("button", { onClick: () => setModal({ type: "newBudget" }), style: st.btnPri }, "+ Presupuesto")
     ),
@@ -1318,7 +1376,15 @@ function Presupuesto({ S, upd, setModal, dc }) {
       if (!cat) return null;
       const bcId = b.currencyId || dc.id;
       const cur = S.currencies.find(c => c.id === bcId);
-      const spent = S.transactions.filter(t => t.categoryId === b.categoryId && t.type === "expense" && (b.period === "weekly" ? t.date >= wFrom && t.date <= wTo : b.period === "monthly" ? t.date.startsWith(m) : t.date.startsWith(y))).reduce((s, t) => {
+      const spent = S.transactions.filter(t => {
+        if (t.categoryId !== b.categoryId || t.type !== "expense") return false;
+        if (t.note === "Ajuste de saldo" || t.note === "Actualización de capital") return false;
+        const acc = S.accounts.find(a => a.id === t.accountId);
+        if (acc?.isInvestment) return false;
+        return b.period === "weekly" ? t.date >= wFrom && t.date <= wTo
+             : b.period === "monthly" ? t.date.startsWith(m)
+             : t.date.startsWith(y);
+      }).reduce((s, t) => {
         const a = S.accounts.find(x => x.id === t.accountId);
         return s + (a ? cvt(t.amount, a.currencyId, bcId, S.currencies) : t.amount);
       }, 0);
@@ -1326,12 +1392,25 @@ function Presupuesto({ S, upd, setModal, dc }) {
       const pct = Math.min(100, spent / b.amount * 100), over = spent > b.amount;
       const barColor = over ? C.expense : pct >= 80 ? "#c47c1a" : C.green;
       const isEditing = editId === b.id;
+      const txs = S.transactions.filter(t => {
+        if (t.categoryId !== b.categoryId || t.type !== "expense") return false;
+        if (t.note === "Ajuste de saldo" || t.note === "Actualización de capital") return false;
+        const acc = S.accounts.find(a => a.id === t.accountId);
+        if (acc?.isInvestment) return false;
+        return b.period === "weekly" ? t.date >= wFrom && t.date <= wTo
+             : b.period === "monthly" ? t.date.startsWith(m)
+             : t.date.startsWith(y);
+      }).sort((a, b) => b.date.localeCompare(a.date));
+
       return React.createElement("div", { key: b.id, style: { ...st.card, borderLeft: `3px solid ${cat.color}`, padding: "16px 20px" } },
         React.createElement("div", { style: { display: "flex", alignItems: "center", marginBottom: isEditing ? 16 : 14 } },
           React.createElement("span", { style: { width: 28, height: 28, borderRadius: "50%", background: cat.color + "22", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, marginRight: 10, flexShrink: 0 } }, cat.icon),
           React.createElement("div", { style: { flex: 1 } },
             React.createElement("div", { style: { fontWeight: 500, fontSize: 14 } }, cat.name),
-            React.createElement("div", { style: { fontSize: 11, color: C.muted } }, b.period === "weekly" ? "Semanal" : b.period === "monthly" ? "Mensual" : "Anual", " · ", cur?.code)
+            React.createElement("div", { style: { fontSize: 11, color: C.muted } },
+              b.period === "weekly" ? "Semanal" : b.period === "monthly" ? "Mensual" : "Anual", " · ", cur?.code,
+              " · ", b.period === "monthly" ? monthLabel : b.period === "weekly" ? weekLabel : selYear
+            )
           ),
           !isEditing && React.createElement("div", { style: { fontSize: 12, fontWeight: 600, color: barColor, marginRight: 10 } }, pct.toFixed(0), "%"),
           React.createElement("button", { onClick: () => isEditing ? (setEditId(null), setEditForm(null)) : startEdit(b), style: { border: "none", background: "none", cursor: "pointer", fontSize: 13, color: isEditing ? C.accent : C.muted, lineHeight: 1, marginRight: 6 } }, isEditing ? "✕" : "✏︎"),
@@ -1378,48 +1457,35 @@ function Presupuesto({ S, upd, setModal, dc }) {
           React.createElement("div", { style: { height: 5, borderRadius: 5, background: "#e8e6e1" } },
             React.createElement("div", { style: { height: "100%", borderRadius: 5, width: `${pct}%`, background: barColor, transition: "width 0.3s" } })
           ),
-          React.createElement("div", { style: { marginTop: 7, marginBottom: 10, fontSize: 11, color: over ? C.red : remaining <= 0.1 * b.amount ? "#c47c1a" : C.muted } },
+          React.createElement("div", { style: { marginTop: 7, marginBottom: txs.length > 0 ? 12 : 0, fontSize: 11, color: over ? C.red : remaining <= 0.1 * b.amount ? "#c47c1a" : C.muted } },
             over ? `⚠ Superado en ${fmt(spent - b.amount, bcId, S.currencies)}` : `Disponible: ${fmt(remaining, bcId, S.currencies)}`
           ),
-          // Drill-down: transactions of this budget category in the current period
-          (() => {
-            const txs = S.transactions.filter(t => {
-              if (t.type !== "expense") return false;
-              if (t.note === "Ajuste de saldo" || t.note === "Actualización de capital") return false;
+          txs.length > 0 && React.createElement("div", { style: { border: `1px solid ${cat.color}33`, borderRadius: 8, overflow: "hidden" } },
+            React.createElement("div", { style: { fontSize: 10, color: C.muted, textTransform: "uppercase", letterSpacing: "0.04em", padding: "8px 12px", borderBottom: `1px solid ${C.border}`, background: cat.color + "08" } },
+              txs.length, " registro", txs.length !== 1 ? "s" : ""
+            ),
+            txs.map((t, i) => {
               const acc = S.accounts.find(a => a.id === t.accountId);
-              if (acc?.isInvestment) return false;
-              if (t.categoryId !== b.categoryId) return false;
-              return b.period === "weekly" ? t.date >= wFrom && t.date <= wTo
-                   : b.period === "monthly" ? t.date.startsWith(m)
-                   : t.date.startsWith(y);
-            }).sort((a, b) => b.date.localeCompare(a.date));
-            if (txs.length === 0) return null;
-            return React.createElement("div", { style: { border: `1px solid ${cat.color}33`, borderRadius: 8, overflow: "hidden" } },
-              React.createElement("div", { style: { fontSize: 10, color: C.muted, textTransform: "uppercase", letterSpacing: "0.04em", padding: "8px 12px", borderBottom: `1px solid ${C.border}`, background: cat.color + "08" } },
-                txs.length, " registro", txs.length !== 1 ? "s" : ""
-              ),
-              txs.map((t, i) => {
-                const acc = S.accounts.find(a => a.id === t.accountId);
-                const cur = acc ? S.currencies.find(c => c.id === acc.currencyId) : null;
-                const sub = S.subcategories?.find(x => x.id === t.subcategoryId);
-                return React.createElement("div", { key: t.id, style: { display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", borderBottom: i < txs.length - 1 ? `1px solid ${C.border}` : "none", background: C.surface } },
-                  React.createElement("span", { style: { fontSize: 14, flexShrink: 0 } }, sub?.icon || cat.icon),
-                  React.createElement("div", { style: { flex: 1, minWidth: 0 } },
-                    React.createElement("div", { style: { fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, t.note || sub?.name || cat.name),
-                    React.createElement("div", { style: { fontSize: 11, color: C.muted } }, fmtDate(t.date), acc ? " · " + acc.name : "")
-                  ),
-                  React.createElement("div", { style: { fontSize: 13, fontWeight: 500, color: C.expense, flexShrink: 0 } },
-                    "-", fmt(t.amount, cur?.id || bcId, S.currencies)
-                  )
-                );
-              })
-            );
-          })()
+              const cur2 = acc ? S.currencies.find(c => c.id === acc.currencyId) : null;
+              const sub = S.subcategories?.find(x => x.id === t.subcategoryId);
+              return React.createElement("div", { key: t.id, style: { display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", borderBottom: i < txs.length - 1 ? `1px solid ${C.border}` : "none", background: C.surface } },
+                React.createElement("span", { style: { fontSize: 14, flexShrink: 0 } }, sub?.icon || cat.icon),
+                React.createElement("div", { style: { flex: 1, minWidth: 0 } },
+                  React.createElement("div", { style: { fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, t.note || sub?.name || cat.name),
+                  React.createElement("div", { style: { fontSize: 11, color: C.muted } }, fmtDate(t.date), acc ? " · " + acc.name : "")
+                ),
+                React.createElement("div", { style: { fontSize: 13, fontWeight: 500, color: C.expense, flexShrink: 0 } },
+                  "-", fmt(t.amount, cur2?.id || bcId, S.currencies)
+                )
+              );
+            })
+          )
         )
       );
     })
   );
 }
+
 function Reportes({ S, dc }) {
   const [mode, setMode] = React.useState("monthly");
   const [y1, setY1] = React.useState(new Date().getFullYear().toString());
