@@ -1930,58 +1930,92 @@ function InvMovRow({ t, S, accs, upd }) {
 }
 function InvStats({ S, dc, accBal, accBalIn, accs, label, color, upd }) {
   const dcId = dc.id;
-  const cv = t => { const a = S.accounts.find(x => x.id === t.accountId); return a ? cvt(t.amount, a.currencyId, dcId, S.currencies) : t.amount; };
-  const txs = S.transactions.filter(t => accs.some(a => a.id === t.accountId));
-  const totVal = accs.reduce((s, a) => s + accBalIn(a.id, dcId), 0);
-  const totInc = txs.filter(t => t.type === "income").reduce((s, t) => s + cv(t), 0);
-  const totExp = txs.filter(t => t.type === "expense").reduce((s, t) => s + cv(t), 0);
-  const netR = totInc - totExp;
-  const capitalInv = accs.reduce((s, a) => {
-    return s + S.transfers.filter(t => t.toId === a.id).reduce((ss, tr) => {
-      const amt = tr.toAmount ?? tr.amount;
-      return ss + cvt(amt, a.currencyId, dcId, S.currencies);
+  const bob = S.currencies.find(c => c.id === "BOB");
+
+  // Capital invertido en BOB = suma de transacciones "Actualización de capital" tipo ingreso
+  // menos retiros ("Actualización de capital" tipo egreso), convertidos a BOB
+  const capitalBOB = accs.reduce((sum, a) => {
+    const txs = S.transactions.filter(t => t.accountId === a.id && t.note === "Actualización de capital");
+    return sum + txs.reduce((s, t) => {
+      const amt = bob ? cvt(t.amount, a.currencyId, "BOB", S.currencies) : t.amount;
+      return t.type === "income" ? s + amt : s - amt;
     }, 0);
   }, 0);
-  const rendPct = capitalInv > 0 ? (netR / capitalInv * 100) : null;
+
+  // Valor en cartera en BOB = dato manual guardado en account.valorBOB
+  // Si no hay dato manual, cae a accBalIn convertido a BOB
+  const valorBOB = accs.reduce((sum, a) => {
+    if (a.valorBOB !== undefined && a.valorBOB !== null) return sum + a.valorBOB;
+    return sum + (bob ? cvt(accBal(a.id), a.currencyId, "BOB", S.currencies) : accBal(a.id));
+  }, 0);
+
+  // Rendimiento
+  const rendBOB = valorBOB - capitalBOB;
+  const rendPct = capitalBOB > 0 ? (rendBOB / capitalBOB * 100) : null;
+
+  // Para mostrar en divisa seleccionada
+  const toBOBrate = bob ? bob.rateToUSD : 1;
+  const toDisplay = (amtBOB) => bob ? cvt(amtBOB, "BOB", dcId, S.currencies) : amtBOB;
+
+  const txs = S.transactions.filter(t => accs.some(a => a.id === t.accountId));
+  const cv = t => { const a = S.accounts.find(x => x.id === t.accountId); return a ? cvt(t.amount, a.currencyId, dcId, S.currencies) : t.amount; };
+
+  // Monthly chart — ingresos/egresos de capital (excluyendo ajustes internos)
   const now = new Date();
   const months = Array.from({ length: 12 }, (_, i) => {
     const d = new Date(now.getFullYear(), now.getMonth() - 11 + i, 1);
     const mk = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
     const lbl = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"][d.getMonth()];
-    const inc = txs.filter(t => t.date.startsWith(mk) && t.type === "income").reduce((s, t) => s + cv(t), 0);
-    const exp = txs.filter(t => t.date.startsWith(mk) && t.type === "expense").reduce((s, t) => s + cv(t), 0);
+    const mTxs = txs.filter(t => t.date.startsWith(mk) && t.note === "Actualización de capital");
+    const inc = mTxs.filter(t => t.type === "income").reduce((s, t) => s + cv(t), 0);
+    const exp = mTxs.filter(t => t.type === "expense").reduce((s, t) => s + cv(t), 0);
     return { lbl, inc, exp, net: inc - exp };
   });
   const maxM = Math.max(...months.map(m => Math.max(m.inc, m.exp, Math.abs(m.net))), 1);
   const [selM, setSelM] = React.useState(null);
-  const recent = [...txs].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5);
+  const recent = [...txs].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 8);
+
+  const statCards = [
+    { l: "Valor en cartera", v: toDisplay(valorBOB), raw: valorBOB, c: color || C.blue },
+    { l: "Capital invertido", v: toDisplay(capitalBOB), raw: capitalBOB, c: C.muted },
+    { l: "Rendimiento neto", v: toDisplay(rendBOB), raw: rendBOB, c: rendBOB >= 0 ? C.green : C.red },
+    rendPct !== null && { l: "Retorno %", v: rendPct, c: rendBOB >= 0 ? C.green : C.red, isPct: true }
+  ].filter(Boolean);
+
   return React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 14 } },
     React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(130px,1fr))", gap: 10 } },
-      [{ l: "Valor en cartera", v: totVal, c: color || C.blue, cur: dcId }, { l: "Rendimiento neto", v: netR, c: netR >= 0 ? C.green : C.red, cur: dcId }, { l: "Capital invertido", v: capitalInv, c: C.muted, cur: dcId }, rendPct !== null && { l: "Retorno %", v: rendPct, c: netR >= 0 ? C.green : C.red, isPct: true }].filter(Boolean).map(k =>
+      statCards.map(k =>
         React.createElement("div", { key: k.l, style: { ...st.card, borderTop: `3px solid ${k.c}`, padding: "14px 16px" } },
           React.createElement("div", { style: { fontSize: 10, color: C.muted, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.04em" } }, k.l),
-          React.createElement("div", { style: { fontSize: 18, fontWeight: 300, color: k.c } }, k.isPct ? `${netR >= 0 ? "+" : ""}${k.v.toFixed(2)}%` : `${k.v >= 0 ? "" : "-"}${fmt(Math.abs(k.v), dcId, S.currencies)}`)
+          React.createElement("div", { style: { fontSize: 18, fontWeight: 300, color: k.c } },
+            k.isPct
+              ? `${rendBOB >= 0 ? "+" : ""}${k.v.toFixed(2)}%`
+              : `${k.v < 0 ? "-" : ""}${fmt(Math.abs(k.v), dcId, S.currencies)}`
+          ),
+          !k.isPct && dcId !== "BOB" && bob && React.createElement("div", { style: { fontSize: 10, color: C.muted, marginTop: 2 } },
+            "Bs. ", Math.abs(k.raw).toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+          )
         )
       )
     ),
     React.createElement("div", { style: st.card },
-      React.createElement("div", { style: { fontSize: 11, color: C.muted, textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 4 } }, "Rendimientos — últimos 12 meses"),
+      React.createElement("div", { style: { fontSize: 11, color: C.muted, textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 4 } }, "Movimientos de capital — últimos 12 meses"),
       React.createElement("div", { style: { display: "flex", gap: 12, marginBottom: 12, fontSize: 11, color: C.muted, flexWrap: "wrap" } },
-        React.createElement("span", { style: { display: "flex", alignItems: "center", gap: 4 } }, React.createElement("span", { style: { width: 8, height: 8, borderRadius: 2, background: C.green, display: "inline-block" } }), " Ingresos"),
-        React.createElement("span", { style: { display: "flex", alignItems: "center", gap: 4 } }, React.createElement("span", { style: { width: 8, height: 8, borderRadius: 2, background: C.red, display: "inline-block" } }), " Egresos"),
+        React.createElement("span", { style: { display: "flex", alignItems: "center", gap: 4 } }, React.createElement("span", { style: { width: 8, height: 8, borderRadius: 2, background: C.green, display: "inline-block" } }), " Inversión"),
+        React.createElement("span", { style: { display: "flex", alignItems: "center", gap: 4 } }, React.createElement("span", { style: { width: 8, height: 8, borderRadius: 2, background: C.red, display: "inline-block" } }), " Retiro"),
         selM !== null && React.createElement("span", { style: { marginLeft: "auto", cursor: "pointer", color: C.muted }, onClick: () => setSelM(null) }, "✕ cerrar")
       ),
       selM !== null && React.createElement("div", { style: { marginBottom: 12, padding: "10px 14px", background: C.bg, borderRadius: 8, border: `1px solid ${C.border}`, display: "grid", gridTemplateColumns: "auto 1fr 1fr 1fr", gap: "4px 14px", fontSize: 12, alignItems: "center" } },
         React.createElement("span", { style: { fontWeight: 600, fontSize: 13, gridRow: "1/3", color: color || C.blue } }, months[selM].lbl),
-        React.createElement("span", { style: { color: C.muted, fontSize: 10 } }, "Ingresos"),
-        React.createElement("span", { style: { color: C.muted, fontSize: 10 } }, "Egresos"),
+        React.createElement("span", { style: { color: C.muted, fontSize: 10 } }, "Inversión"),
+        React.createElement("span", { style: { color: C.muted, fontSize: 10 } }, "Retiro"),
         React.createElement("span", { style: { color: C.muted, fontSize: 10 } }, "Neto"),
         React.createElement("span", { style: { color: C.green, fontWeight: 500 } }, fmt(months[selM].inc, dcId, S.currencies)),
         React.createElement("span", { style: { color: C.red, fontWeight: 500 } }, fmt(months[selM].exp, dcId, S.currencies)),
         React.createElement("span", { style: { color: months[selM].net >= 0 ? C.green : C.red, fontWeight: 600 } }, months[selM].net >= 0 ? "+" : "", fmt(Math.abs(months[selM].net), dcId, S.currencies))
       ),
       months.every(m => m.inc === 0 && m.exp === 0)
-        ? React.createElement("div", { style: { fontSize: 13, color: C.muted } }, "Sin movimientos aún.")
+        ? React.createElement("div", { style: { fontSize: 13, color: C.muted } }, "Sin movimientos de capital aún.")
         : React.createElement("div", { style: { display: "flex", gap: 3, alignItems: "flex-end", height: 100 } },
             months.map((m, i) => {
               const isSel = selM === i;
@@ -2002,12 +2036,13 @@ function InvStats({ S, dc, accBal, accBalIn, accs, label, color, upd }) {
     )
   );
 }
+
 function Inversiones({ S, dc, accBal, accBalIn, upd }) {
   const dcId = dc.id;
   const invAccs = S.accounts.filter(a => a.excludeBalance && a.isInvestment && !a.archived);
   const [selAccId, setSelAccId] = React.useState(null);
   const [showCapModal, setShowCapModal] = React.useState(false);
-  const [capForm, setCapForm] = React.useState({ accId: "", newAmt: "" });
+  const [capForm, setCapForm] = React.useState({ accId: "", newAmt: "", mode: "capital", tipo: "inversion", date: today() });
   const [editAccId, setEditAccId] = React.useState(null);
   const [editAccForm, setEditAccForm] = React.useState({ name: "", color: "" });
   const saveCapital = () => {
@@ -2015,11 +2050,17 @@ function Inversiones({ S, dc, accBal, accBalIn, upd }) {
     if (!acc) return;
     const newAmt = parseFloat(capForm.newAmt);
     if (isNaN(newAmt) || newAmt < 0) return;
-    const currentBal = accBal(capForm.accId);
-    const diff = newAmt - currentBal;
-    if (Math.abs(diff) < 0.0000001) { setShowCapModal(false); return; }
-    upd(s => { s.transactions.push({ id: uid(), date: today(), type: diff > 0 ? "income" : "expense", accountId: capForm.accId, categoryId: "", subcategoryId: "", amount: Math.abs(diff), note: "Actualización de capital" }); });
-    setShowCapModal(false); setCapForm({ accId: "", newAmt: "" });
+    if (capForm.mode === "valor") {
+      // Guarda el valor de cartera en BOB directamente en la cuenta — sin transacción
+      upd(s => { const a = s.accounts.find(x => x.id === capForm.accId); if (a) a.valorBOB = newAmt; });
+    } else {
+      // Registra inversión o retiro de capital en BOB como transacción
+      const bob = S.currencies.find(c => c.id === "BOB");
+      // Convertir BOB al monto en la divisa de la cuenta
+      const amtInAccCur = bob ? cvt(newAmt, "BOB", acc.currencyId, S.currencies) : newAmt;
+      upd(s => { s.transactions.push({ id: uid(), date: capForm.date || today(), type: capForm.tipo === "retiro" ? "expense" : "income", accountId: capForm.accId, categoryId: "", subcategoryId: "", amount: amtInAccCur, note: "Actualización de capital" }); });
+    }
+    setShowCapModal(false); setCapForm({ accId: "", newAmt: "", mode: "capital", tipo: "inversion", date: today() });
   };
   if (invAccs.length === 0) {
     return React.createElement("div", { style: { ...st.card, textAlign: "center", padding: 40, color: C.muted } },
@@ -2038,26 +2079,80 @@ function Inversiones({ S, dc, accBal, accBalIn, upd }) {
   return React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 16 } },
     showCapModal && React.createElement("div", { onClick: () => setShowCapModal(false), style: { position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "flex-end", justifyContent: "center", zIndex: 1000 } },
       React.createElement("div", { onClick: e => e.stopPropagation(), style: { background: C.surface, borderRadius: "16px 16px 0 0", padding: "24px 20px 36px", width: "100%", maxWidth: 500, boxShadow: "0 -4px 40px rgba(0,0,0,0.18)" } },
-        React.createElement("div", { style: { fontWeight: 600, fontSize: 15, marginBottom: 20 } }, "Actualizar capital invertido"),
+        React.createElement("div", { style: { fontWeight: 600, fontSize: 15, marginBottom: 16 } }, "Registrar movimiento"),
+        // Mode tabs
+        React.createElement("div", { style: { display: "flex", gap: 6, marginBottom: 12 } },
+          React.createElement("button", { onClick: () => setCapForm(p => ({ ...p, mode: "capital", newAmt: "" })), style: { flex: 1, border: "none", borderRadius: 6, padding: "9px", fontSize: 12, cursor: "pointer", fontWeight: capForm.mode === "capital" ? 600 : 400, background: capForm.mode === "capital" ? C.accent : C.bg, color: capForm.mode === "capital" ? C.bg : C.muted } }, "💰 Capital"),
+          React.createElement("button", { onClick: () => setCapForm(p => ({ ...p, mode: "valor", newAmt: "" })), style: { flex: 1, border: "none", borderRadius: 6, padding: "9px", fontSize: 12, cursor: "pointer", fontWeight: capForm.mode === "valor" ? 600 : 400, background: capForm.mode === "valor" ? C.accent : C.bg, color: capForm.mode === "valor" ? C.bg : C.muted } }, "📊 Valor en cartera")
+        ),
+        React.createElement("div", { style: { fontSize: 11, color: C.muted, marginBottom: 14, padding: "8px 12px", background: C.bg, borderRadius: 6 } },
+          capForm.mode === "capital"
+            ? "Registra una inversión o retiro en Bs. Crea un movimiento en el historial."
+            : "Actualiza el valor actual de la cartera en Bs. No crea movimiento — solo actualiza el dato de valor."
+        ),
         React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 14 } },
+          // Cuenta
           React.createElement("div", null, React.createElement("label", { style: st.label }, "Cuenta"),
             React.createElement("select", { value: capForm.accId, onChange: e => setCapForm(p => ({ ...p, accId: e.target.value, newAmt: "" })), style: st.select },
               React.createElement("option", { value: "" }, "— Seleccionar —"),
-              invAccs.map(a => { const cur = S.currencies.find(c => c.id === a.currencyId); return React.createElement("option", { key: a.id, value: a.id }, a.name, " (", cur?.code, ")"); })
+              invAccs.map(a => React.createElement("option", { key: a.id, value: a.id }, a.name))
             )
           ),
-          modalAcc && React.createElement("div", { style: { padding: "10px 14px", background: C.bg, borderRadius: 8, fontSize: 13, color: C.muted } },
-            "Saldo actual: ", React.createElement("span", { style: { fontWeight: 600, color: C.text } }, fmt(modalCurBal, modalCur?.id || dcId, S.currencies))
+          // Info de la cuenta seleccionada
+          modalAcc && React.createElement("div", { style: { display: "flex", gap: 8 } },
+            React.createElement("div", { style: { flex: 1, padding: "8px 12px", background: C.bg, borderRadius: 6, fontSize: 12 } },
+              React.createElement("div", { style: { color: C.muted, fontSize: 10, textTransform: "uppercase", marginBottom: 2 } }, "Capital invertido"),
+              React.createElement("div", { style: { fontWeight: 600, color: C.text } }, (() => {
+                const bob = S.currencies.find(c => c.id === "BOB");
+                const txs = S.transactions.filter(t => t.accountId === modalAcc.id && t.note === "Actualización de capital");
+                const cap = txs.reduce((s, t) => { const amt = bob ? cvt(t.amount, modalAcc.currencyId, "BOB", S.currencies) : t.amount; return t.type === "income" ? s + amt : s - amt; }, 0);
+                return "Bs. " + cap.toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+              })())
+            ),
+            React.createElement("div", { style: { flex: 1, padding: "8px 12px", background: C.bg, borderRadius: 6, fontSize: 12 } },
+              React.createElement("div", { style: { color: C.muted, fontSize: 10, textTransform: "uppercase", marginBottom: 2 } }, "Valor actual"),
+              React.createElement("div", { style: { fontWeight: 600, color: C.text } }, (() => {
+                const bob = S.currencies.find(c => c.id === "BOB");
+                const val = modalAcc.valorBOB !== undefined ? modalAcc.valorBOB : (bob ? cvt(accBal(modalAcc.id), modalAcc.currencyId, "BOB", S.currencies) : accBal(modalAcc.id));
+                return "Bs. " + val.toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+              })())
+            )
           ),
-          modalAcc && React.createElement("div", null, React.createElement("label", { style: st.label }, "Nuevo valor en cartera (", modalCur?.code, ")"),
-            React.createElement("input", { autoFocus: true, type: "number", value: capForm.newAmt, onChange: e => setCapForm(p => ({ ...p, newAmt: e.target.value })), placeholder: String(modalCurBal.toFixed(2)), step: "any", style: { ...st.input, fontSize: 22, fontWeight: 300, border: "none", borderBottom: `1px solid ${C.border}`, borderRadius: 0, padding: "4px 0" } })
+          // Tipo inversión/retiro (solo en modo capital)
+          capForm.mode === "capital" && React.createElement("div", { style: { display: "flex", gap: 6 } },
+            React.createElement("button", { onClick: () => setCapForm(p => ({ ...p, tipo: "inversion" })), style: { flex: 1, border: `1px solid ${capForm.tipo === "inversion" ? C.green : C.border}`, borderRadius: 6, padding: "7px", fontSize: 12, cursor: "pointer", background: capForm.tipo === "inversion" ? C.green + "18" : "none", color: capForm.tipo === "inversion" ? C.green : C.muted, fontWeight: capForm.tipo === "inversion" ? 600 : 400 } }, "↗ Inversión"),
+            React.createElement("button", { onClick: () => setCapForm(p => ({ ...p, tipo: "retiro" })), style: { flex: 1, border: `1px solid ${capForm.tipo === "retiro" ? C.red : C.border}`, borderRadius: 6, padding: "7px", fontSize: 12, cursor: "pointer", background: capForm.tipo === "retiro" ? C.red + "18" : "none", color: capForm.tipo === "retiro" ? C.red : C.muted, fontWeight: capForm.tipo === "retiro" ? 600 : 400 } }, "↙ Retiro")
           ),
-          modalDiff !== null && Math.abs(modalDiff) > 0.000001 && React.createElement("div", { style: { fontSize: 12, padding: "8px 12px", borderRadius: 8, background: modalDiff >= 0 ? C.green + "12" : C.red + "12", border: `1px solid ${modalDiff >= 0 ? C.green : C.red}33`, color: modalDiff >= 0 ? C.green : C.red, fontWeight: 500 } },
-            modalDiff >= 0 ? "↗ Ganancia: +" : "↘ Pérdida: ", fmt(Math.abs(modalDiff), modalCur?.id || dcId, S.currencies)
+          // Monto
+          modalAcc && React.createElement("div", null,
+            React.createElement("label", { style: st.label },
+              capForm.mode === "capital" ? "Monto en Bs." : "Valor actual de la cartera en Bs."
+            ),
+            React.createElement("input", { autoFocus: true, type: "number", value: capForm.newAmt, onChange: e => setCapForm(p => ({ ...p, newAmt: e.target.value })),
+              placeholder: "0.00", step: "any",
+              style: { ...st.input, fontSize: 24, fontWeight: 300, border: "none", borderBottom: `1px solid ${capForm.mode === "capital" ? (capForm.tipo === "retiro" ? C.red : C.green) : C.blue}`, borderRadius: 0, padding: "4px 0" }
+            })
           ),
-          React.createElement("div", { style: { display: "flex", gap: 8, marginTop: 8 } },
+          // Fecha (solo en modo capital)
+          capForm.mode === "capital" && React.createElement("div", null,
+            React.createElement("label", { style: st.label }, "Fecha"),
+            React.createElement("input", { type: "date", value: capForm.date || today(), onChange: e => setCapForm(p => ({ ...p, date: e.target.value })), style: { ...st.input, width: 160, colorScheme: C.bg === "#141414" ? "dark" : "light" } })
+          ),
+          // Preview rendimiento
+          modalAcc && capForm.newAmt !== "" && !isNaN(modalNewAmt) && modalNewAmt > 0 && capForm.mode === "valor" && (() => {
+            const bob = S.currencies.find(c => c.id === "BOB");
+            const txs = S.transactions.filter(t => t.accountId === modalAcc.id && t.note === "Actualización de capital");
+            const cap = txs.reduce((s, t) => { const amt = bob ? cvt(t.amount, modalAcc.currencyId, "BOB", S.currencies) : t.amount; return t.type === "income" ? s + amt : s - amt; }, 0);
+            const rend = modalNewAmt - cap;
+            const pct = cap > 0 ? (rend / cap * 100).toFixed(1) : null;
+            return React.createElement("div", { style: { fontSize: 12, padding: "10px 12px", borderRadius: 8, background: rend >= 0 ? C.green + "12" : C.red + "12", border: `1px solid ${rend >= 0 ? C.green : C.red}33`, color: rend >= 0 ? C.green : C.red, fontWeight: 500 } },
+              rend >= 0 ? "↗ Ganancia: +Bs. " : "↘ Pérdida: -Bs. ", Math.abs(rend).toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+              pct ? "  (" + (rend >= 0 ? "+" : "") + pct + "%)" : ""
+            );
+          })(),
+          React.createElement("div", { style: { display: "flex", gap: 8, marginTop: 4 } },
             React.createElement("button", { onClick: () => setShowCapModal(false), style: { ...st.btn, flex: 1 } }, "Cancelar"),
-            React.createElement("button", { onClick: saveCapital, disabled: !capForm.accId || capForm.newAmt === "" || isNaN(modalNewAmt), style: { ...st.btnPri, flex: 1, opacity: (!capForm.accId || capForm.newAmt === "") ? 0.4 : 1, background: C.blue } }, "Guardar")
+            React.createElement("button", { onClick: saveCapital, disabled: !capForm.accId || capForm.newAmt === "" || isNaN(modalNewAmt) || modalNewAmt <= 0, style: { ...st.btnPri, flex: 1, opacity: (!capForm.accId || !capForm.newAmt || modalNewAmt <= 0) ? 0.4 : 1, background: capForm.mode === "valor" ? C.blue : capForm.tipo === "retiro" ? C.red : C.green } }, "Guardar")
           )
         )
       )
