@@ -1846,10 +1846,12 @@ function CompareChart({ d1, d2, y1, y2, dcId, currencies }) {
   );
 }
 function invCapital(S, a) {
-  const c = S.transactions.filter(t => t.accountId === a.id && t.note === "Actualización de capital").reduce((s, t) => t.type === "income" ? s + t.amount : s - t.amount, 0);
+  // Capital = unidades que tiene la cuenta en su propia moneda (mismo cálculo que el saldo)
+  const inc = S.transactions.filter(t => t.accountId === a.id && t.type === "income").reduce((s, t) => s + t.amount, 0);
+  const exp = S.transactions.filter(t => t.accountId === a.id && t.type === "expense").reduce((s, t) => s + t.amount, 0);
   const ti = S.transfers.filter(t => t.toId === a.id).reduce((s, t) => s + (t.toAmount ?? t.amount), 0);
   const to = S.transfers.filter(t => t.fromId === a.id).reduce((s, t) => s + t.amount, 0);
-  return c + ti - to;
+  return inc - exp + ti - to;
 }
 function InvMovRow({ t, S, accs, upd }) {
   const [confirmDel, setConfirmDel] = React.useState(false);
