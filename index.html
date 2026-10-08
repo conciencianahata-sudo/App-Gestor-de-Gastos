@@ -785,8 +785,7 @@ function PieChart({ title, items, dcId, currencies }) {
             React.createElement("span", { style: { width: 10, height: 10, borderRadius: "50%", background: s.color, flexShrink: 0 } }),
             React.createElement("span", { style: { flex: 1, fontSize: 12, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, s.cat?.icon, " ", s.cat?.name || s.label),
             React.createElement("div", { style: { textAlign: "right", flexShrink: 0 } },
-              React.createElement("div", { style: { fontSize: 12, fontWeight: 600, color: s.color } }, fmt(s.value, dcId, currencies)),
-              React.createElement("div", { style: { fontSize: 10, color: C.muted } }, (s.pct * 100).toFixed(1) + "%")
+              React.createElement("div", { style: { fontSize: 13, fontWeight: 600, color: s.color } }, (s.pct * 100).toFixed(1) + "%")
             )
           )
         )
