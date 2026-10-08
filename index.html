@@ -1845,6 +1845,12 @@ function CompareChart({ d1, d2, y1, y2, dcId, currencies }) {
     sel === null && React.createElement("div", { style: { marginTop: 8, fontSize: 11, color: C.muted, textAlign: "center" } }, "Toca un mes para comparar ", y1, " vs ", y2)
   );
 }
+function invCapital(S, a) {
+  const c = S.transactions.filter(t => t.accountId === a.id && t.note === "Actualización de capital").reduce((s, t) => t.type === "income" ? s + t.amount : s - t.amount, 0);
+  const ti = S.transfers.filter(t => t.toId === a.id).reduce((s, t) => s + (t.toAmount ?? t.amount), 0);
+  const to = S.transfers.filter(t => t.fromId === a.id).reduce((s, t) => s + t.amount, 0);
+  return c + ti - to;
+}
 function InvMovRow({ t, S, accs, upd }) {
   const [confirmDel, setConfirmDel] = React.useState(false);
   const [editing, setEditing] = React.useState(false);
@@ -1938,13 +1944,7 @@ function InvStats({ S, dc, accBal, accBalIn, accs, label, color, upd }) {
 
   // Capital invertido en BOB = suma de transacciones "Actualización de capital" tipo ingreso
   // menos retiros ("Actualización de capital" tipo egreso), convertidos a BOB
-  const capitalBOB = accs.reduce((sum, a) => {
-    const txs = S.transactions.filter(t => t.accountId === a.id && t.note === "Actualización de capital");
-    return sum + txs.reduce((s, t) => {
-      const amt = bob ? cvt(t.amount, a.currencyId, "BOB", S.currencies) : t.amount;
-      return t.type === "income" ? s + amt : s - amt;
-    }, 0);
-  }, 0);
+  const capitalBOB = accs.reduce((sum, a) => { const c = invCapital(S, a); return sum + (bob ? cvt(c, a.currencyId, "BOB", S.currencies) : c); }, 0);
 
   // Valor en cartera en BOB = dato manual guardado en account.valorBOB
   // Si no hay dato manual, cae a accBalIn convertido a BOB
@@ -1973,13 +1973,15 @@ function InvStats({ S, dc, accBal, accBalIn, accs, label, color, upd }) {
     const mTxs = txs.filter(t => t.date.startsWith(mk) && t.note === "Actualización de capital");
     const inc = mTxs.filter(t => t.type === "income").reduce((s, t) => s + cv(t), 0);
     const exp = mTxs.filter(t => t.type === "expense").reduce((s, t) => s + cv(t), 0);
-    return { lbl, inc, exp, net: inc - exp };
+    const trIn = S.transfers.filter(t => t.date.startsWith(mk) && accs.some(a => a.id === t.toId)).reduce((s, t) => { const a = S.accounts.find(x => x.id === t.toId); return s + cvt(t.toAmount ?? t.amount, a.currencyId, dcId, S.currencies); }, 0);
+    const trOut = S.transfers.filter(t => t.date.startsWith(mk) && accs.some(a => a.id === t.fromId)).reduce((s, t) => { const a = S.accounts.find(x => x.id === t.fromId); return s + cvt(t.amount, a.currencyId, dcId, S.currencies); }, 0);
+    return { lbl, inc: inc + trIn, exp: exp + trOut, net: inc + trIn - exp - trOut };
   });
   const maxM = Math.max(...months.map(m => Math.max(m.inc, m.exp, Math.abs(m.net))), 1);
   const [selM, setSelM] = React.useState(null);
   const recent = [...txs].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 8);
 
-  const capNative = accs.length === 1 ? S.transactions.filter(t => t.accountId === accs[0].id && t.note === "Actualización de capital").reduce((s, t) => t.type === "income" ? s + t.amount : s - t.amount, 0) : null;
+  const capNative = accs.length === 1 ? invCapital(S, accs[0]) : null;
   const capNativeTxt = capNative !== null ? (capNative < 0 ? "-" : "") + fmt(Math.abs(capNative), accs[0].currencyId, S.currencies) + " " + accs[0].currencyId : null;
   const statCards = [
     { l: "Valor en cartera", v: toDisplay(valorBOB), raw: valorBOB, c: color || C.blue },
@@ -2116,7 +2118,7 @@ function Inversiones({ S, dc, accBal, accBalIn, upd }) {
           modalAcc && (() => {
             const bob = S.currencies.find(c => c.id === "BOB");
             const txs = S.transactions.filter(t => t.accountId === modalAcc.id && t.note === "Actualización de capital");
-            const capActual = txs.reduce((s, t) => t.type === "income" ? s + t.amount : s - t.amount, 0);
+            const capActual = invCapital(S, modalAcc);
             const valActual = modalAcc.valorBOB !== undefined ? modalAcc.valorBOB : (bob ? cvt(accBal(modalAcc.id), modalAcc.currencyId, "BOB", S.currencies) : accBal(modalAcc.id));
             const rendActual = valActual - (bob ? cvt(capActual, modalAcc.currencyId, "BOB", S.currencies) : capActual);
             return React.createElement("div", { style: { display: "flex", gap: 8 } },
@@ -2172,7 +2174,7 @@ function Inversiones({ S, dc, accBal, accBalIn, upd }) {
           modalAcc && parseFloat(capForm.capitalAcc) > 0 && parseFloat(capForm.valorBOB) > 0 && (() => {
             const bob = S.currencies.find(c => c.id === "BOB");
             const txs = S.transactions.filter(t => t.accountId === modalAcc.id && t.note === "Actualización de capital");
-            const capPrev = txs.reduce((s, t) => { const amt = bob ? cvt(t.amount, modalAcc.currencyId, "BOB", S.currencies) : t.amount; return t.type === "income" ? s + amt : s - amt; }, 0);
+            const capPrev = bob ? cvt(invCapital(S, modalAcc), modalAcc.currencyId, "BOB", S.currencies) : invCapital(S, modalAcc);
             const addBOB = bob ? cvt(parseFloat(capForm.capitalAcc), modalAcc.currencyId, "BOB", S.currencies) : parseFloat(capForm.capitalAcc); const capNuevo = capForm.tipo === "retiro" ? capPrev - addBOB : capPrev + addBOB;
             const valNuevo = parseFloat(capForm.valorBOB);
             const rendNuevo = valNuevo - capNuevo;
