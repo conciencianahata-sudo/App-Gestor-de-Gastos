@@ -2046,25 +2046,35 @@ function Inversiones({ S, dc, accBal, accBalIn, upd }) {
   const invAccs = S.accounts.filter(a => a.excludeBalance && a.isInvestment && !a.archived);
   const [selAccId, setSelAccId] = React.useState(null);
   const [showCapModal, setShowCapModal] = React.useState(false);
-  const [capForm, setCapForm] = React.useState({ accId: "", newAmt: "", mode: "capital", tipo: "inversion", date: today() });
+  const [capForm, setCapForm] = React.useState({ accId: "", capitalBOB: "", valorBOB: "", tipo: "inversion", date: today() });
   const [editAccId, setEditAccId] = React.useState(null);
   const [editAccForm, setEditAccForm] = React.useState({ name: "", color: "" });
   const saveCapital = () => {
     const acc = S.accounts.find(a => a.id === capForm.accId);
     if (!acc) return;
-    const newAmt = parseFloat(capForm.newAmt);
-    if (isNaN(newAmt) || newAmt < 0) return;
-    if (capForm.mode === "valor") {
-      // Guarda el valor de cartera en BOB directamente en la cuenta — sin transacción
-      upd(s => { const a = s.accounts.find(x => x.id === capForm.accId); if (a) a.valorBOB = newAmt; });
-    } else {
-      // Registra inversión o retiro de capital en BOB como transacción
-      const bob = S.currencies.find(c => c.id === "BOB");
-      // Convertir BOB al monto en la divisa de la cuenta
-      const amtInAccCur = bob ? cvt(newAmt, "BOB", acc.currencyId, S.currencies) : newAmt;
-      upd(s => { s.transactions.push({ id: uid(), date: capForm.date || today(), type: capForm.tipo === "retiro" ? "expense" : "income", accountId: capForm.accId, categoryId: "", subcategoryId: "", amount: amtInAccCur, note: "Actualización de capital" }); });
-    }
-    setShowCapModal(false); setCapForm({ accId: "", newAmt: "", mode: "capital", tipo: "inversion", date: today() });
+    const capitalAmt = parseFloat(capForm.capitalBOB);
+    const valorAmt = parseFloat(capForm.valorBOB);
+    if (isNaN(capitalAmt) || capitalAmt < 0) return;
+    if (isNaN(valorAmt) || valorAmt < 0) return;
+    const bob = S.currencies.find(c => c.id === "BOB");
+    const amtInAccCur = bob ? cvt(capitalAmt, "BOB", acc.currencyId, S.currencies) : capitalAmt;
+    upd(s => {
+      // 1. Create capital transaction
+      s.transactions.push({
+        id: uid(),
+        date: capForm.date || today(),
+        type: capForm.tipo === "retiro" ? "expense" : "income",
+        accountId: capForm.accId,
+        categoryId: "", subcategoryId: "",
+        amount: amtInAccCur,
+        note: "Actualización de capital"
+      });
+      // 2. Update valor en cartera on the account
+      const a = s.accounts.find(x => x.id === capForm.accId);
+      if (a) a.valorBOB = valorAmt;
+    });
+    setShowCapModal(false);
+    setCapForm({ accId: "", capitalBOB: "", valorBOB: "", tipo: "inversion", date: today() });
   };
   if (invAccs.length === 0) {
     return React.createElement("div", { style: { ...st.card, textAlign: "center", padding: 40, color: C.muted } },
@@ -2083,81 +2093,113 @@ function Inversiones({ S, dc, accBal, accBalIn, upd }) {
   return React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 16 } },
     showCapModal && React.createElement("div", { onClick: () => setShowCapModal(false), style: { position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "flex-end", justifyContent: "center", zIndex: 1000 } },
       React.createElement("div", { onClick: e => e.stopPropagation(), style: { background: C.surface, borderRadius: "16px 16px 0 0", padding: "24px 20px 36px", width: "100%", maxWidth: 500, boxShadow: "0 -4px 40px rgba(0,0,0,0.18)" } },
-        React.createElement("div", { style: { fontWeight: 600, fontSize: 15, marginBottom: 16 } }, "Registrar movimiento"),
-        // Mode tabs
-        React.createElement("div", { style: { display: "flex", gap: 6, marginBottom: 12 } },
-          React.createElement("button", { onClick: () => setCapForm(p => ({ ...p, mode: "capital", newAmt: "" })), style: { flex: 1, border: "none", borderRadius: 6, padding: "9px", fontSize: 12, cursor: "pointer", fontWeight: capForm.mode === "capital" ? 600 : 400, background: capForm.mode === "capital" ? C.accent : C.bg, color: capForm.mode === "capital" ? C.bg : C.muted } }, "💰 Capital"),
-          React.createElement("button", { onClick: () => setCapForm(p => ({ ...p, mode: "valor", newAmt: "" })), style: { flex: 1, border: "none", borderRadius: 6, padding: "9px", fontSize: 12, cursor: "pointer", fontWeight: capForm.mode === "valor" ? 600 : 400, background: capForm.mode === "valor" ? C.accent : C.bg, color: capForm.mode === "valor" ? C.bg : C.muted } }, "📊 Valor en cartera")
-        ),
-        React.createElement("div", { style: { fontSize: 11, color: C.muted, marginBottom: 14, padding: "8px 12px", background: C.bg, borderRadius: 6 } },
-          capForm.mode === "capital"
-            ? "Registra una inversión o retiro en Bs. Crea un movimiento en el historial."
-            : "Actualiza el valor actual de la cartera en Bs. No crea movimiento — solo actualiza el dato de valor."
+        React.createElement("div", { style: { fontWeight: 600, fontSize: 15, marginBottom: 16 } }, "Actualización de inversión"),
+        React.createElement("div", { style: { fontSize: 11, color: C.muted, marginBottom: 16, padding: "8px 12px", background: C.bg, borderRadius: 6 } },
+          "Registrá el capital y el valor actual de la cartera. Ambos son obligatorios para crear un registro en el historial."
         ),
         React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 14 } },
           // Cuenta
-          React.createElement("div", null, React.createElement("label", { style: st.label }, "Cuenta"),
-            React.createElement("select", { value: capForm.accId, onChange: e => setCapForm(p => ({ ...p, accId: e.target.value, newAmt: "" })), style: st.select },
+          React.createElement("div", null,
+            React.createElement("label", { style: st.label }, "Cuenta"),
+            React.createElement("select", {
+              value: capForm.accId,
+              onChange: e => setCapForm(p => ({ ...p, accId: e.target.value, capitalBOB: "", valorBOB: "" })),
+              style: st.select
+            },
               React.createElement("option", { value: "" }, "— Seleccionar —"),
               invAccs.map(a => React.createElement("option", { key: a.id, value: a.id }, a.name))
             )
           ),
-          // Info de la cuenta seleccionada
-          modalAcc && React.createElement("div", { style: { display: "flex", gap: 8 } },
-            React.createElement("div", { style: { flex: 1, padding: "8px 12px", background: C.bg, borderRadius: 6, fontSize: 12 } },
-              React.createElement("div", { style: { color: C.muted, fontSize: 10, textTransform: "uppercase", marginBottom: 2 } }, "Capital invertido"),
-              React.createElement("div", { style: { fontWeight: 600, color: C.text } }, (() => {
-                const bob = S.currencies.find(c => c.id === "BOB");
-                const txs = S.transactions.filter(t => t.accountId === modalAcc.id && t.note === "Actualización de capital");
-                const cap = txs.reduce((s, t) => { const amt = bob ? cvt(t.amount, modalAcc.currencyId, "BOB", S.currencies) : t.amount; return t.type === "income" ? s + amt : s - amt; }, 0);
-                return "Bs. " + cap.toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-              })())
-            ),
-            React.createElement("div", { style: { flex: 1, padding: "8px 12px", background: C.bg, borderRadius: 6, fontSize: 12 } },
-              React.createElement("div", { style: { color: C.muted, fontSize: 10, textTransform: "uppercase", marginBottom: 2 } }, "Valor actual"),
-              React.createElement("div", { style: { fontWeight: 600, color: C.text } }, (() => {
-                const bob = S.currencies.find(c => c.id === "BOB");
-                const val = modalAcc.valorBOB !== undefined ? modalAcc.valorBOB : (bob ? cvt(accBal(modalAcc.id), modalAcc.currencyId, "BOB", S.currencies) : accBal(modalAcc.id));
-                return "Bs. " + val.toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-              })())
+          // Estado actual
+          modalAcc && (() => {
+            const bob = S.currencies.find(c => c.id === "BOB");
+            const txs = S.transactions.filter(t => t.accountId === modalAcc.id && t.note === "Actualización de capital");
+            const capActual = txs.reduce((s, t) => { const amt = bob ? cvt(t.amount, modalAcc.currencyId, "BOB", S.currencies) : t.amount; return t.type === "income" ? s + amt : s - amt; }, 0);
+            const valActual = modalAcc.valorBOB !== undefined ? modalAcc.valorBOB : (bob ? cvt(accBal(modalAcc.id), modalAcc.currencyId, "BOB", S.currencies) : accBal(modalAcc.id));
+            const rendActual = valActual - capActual;
+            return React.createElement("div", { style: { display: "flex", gap: 8 } },
+              React.createElement("div", { style: { flex: 1, padding: "8px 12px", background: C.bg, borderRadius: 6, fontSize: 12 } },
+                React.createElement("div", { style: { color: C.muted, fontSize: 10, textTransform: "uppercase", marginBottom: 2 } }, "Capital actual"),
+                React.createElement("div", { style: { fontWeight: 600, color: C.text } }, "Bs. " + capActual.toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 }))
+              ),
+              React.createElement("div", { style: { flex: 1, padding: "8px 12px", background: C.bg, borderRadius: 6, fontSize: 12 } },
+                React.createElement("div", { style: { color: C.muted, fontSize: 10, textTransform: "uppercase", marginBottom: 2 } }, "Valor actual"),
+                React.createElement("div", { style: { fontWeight: 600, color: C.text } }, "Bs. " + valActual.toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 }))
+              ),
+              React.createElement("div", { style: { flex: 1, padding: "8px 12px", background: rendActual >= 0 ? C.green + "12" : C.red + "12", borderRadius: 6, fontSize: 12 } },
+                React.createElement("div", { style: { color: C.muted, fontSize: 10, textTransform: "uppercase", marginBottom: 2 } }, "Rendimiento"),
+                React.createElement("div", { style: { fontWeight: 600, color: rendActual >= 0 ? C.green : C.red } }, (rendActual >= 0 ? "+" : "") + "Bs. " + rendActual.toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 }))
+              )
+            );
+          })(),
+          // Tipo inversión/retiro
+          React.createElement("div", null,
+            React.createElement("label", { style: st.label }, "Tipo de movimiento de capital"),
+            React.createElement("div", { style: { display: "flex", gap: 6 } },
+              React.createElement("button", { onClick: () => setCapForm(p => ({ ...p, tipo: "inversion" })), style: { flex: 1, border: `1px solid ${capForm.tipo === "inversion" ? C.green : C.border}`, borderRadius: 6, padding: "8px", fontSize: 12, cursor: "pointer", background: capForm.tipo === "inversion" ? C.green + "18" : "none", color: capForm.tipo === "inversion" ? C.green : C.muted, fontWeight: capForm.tipo === "inversion" ? 600 : 400 } }, "↗ Inversión"),
+              React.createElement("button", { onClick: () => setCapForm(p => ({ ...p, tipo: "retiro" })), style: { flex: 1, border: `1px solid ${capForm.tipo === "retiro" ? C.red : C.border}`, borderRadius: 6, padding: "8px", fontSize: 12, cursor: "pointer", background: capForm.tipo === "retiro" ? C.red + "18" : "none", color: capForm.tipo === "retiro" ? C.red : C.muted, fontWeight: capForm.tipo === "retiro" ? 600 : 400 } }, "↙ Retiro")
             )
           ),
-          // Tipo inversión/retiro (solo en modo capital)
-          capForm.mode === "capital" && React.createElement("div", { style: { display: "flex", gap: 6 } },
-            React.createElement("button", { onClick: () => setCapForm(p => ({ ...p, tipo: "inversion" })), style: { flex: 1, border: `1px solid ${capForm.tipo === "inversion" ? C.green : C.border}`, borderRadius: 6, padding: "7px", fontSize: 12, cursor: "pointer", background: capForm.tipo === "inversion" ? C.green + "18" : "none", color: capForm.tipo === "inversion" ? C.green : C.muted, fontWeight: capForm.tipo === "inversion" ? 600 : 400 } }, "↗ Inversión"),
-            React.createElement("button", { onClick: () => setCapForm(p => ({ ...p, tipo: "retiro" })), style: { flex: 1, border: `1px solid ${capForm.tipo === "retiro" ? C.red : C.border}`, borderRadius: 6, padding: "7px", fontSize: 12, cursor: "pointer", background: capForm.tipo === "retiro" ? C.red + "18" : "none", color: capForm.tipo === "retiro" ? C.red : C.muted, fontWeight: capForm.tipo === "retiro" ? 600 : 400 } }, "↙ Retiro")
-          ),
-          // Monto
-          modalAcc && React.createElement("div", null,
-            React.createElement("label", { style: st.label },
-              capForm.mode === "capital" ? "Monto en Bs." : "Valor actual de la cartera en Bs."
+          // Los dos campos obligatorios
+          modalAcc && React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 } },
+            React.createElement("div", null,
+              React.createElement("label", { style: st.label }, capForm.tipo === "retiro" ? "Monto retirado (Bs.)" : "Capital nuevo (Bs.)"),
+              React.createElement("input", {
+                autoFocus: true, type: "number", value: capForm.capitalBOB,
+                onChange: e => setCapForm(p => ({ ...p, capitalBOB: e.target.value })),
+                placeholder: "0.00", step: "any",
+                style: { ...st.input, fontSize: 18, fontWeight: 300, borderColor: capForm.capitalBOB && parseFloat(capForm.capitalBOB) > 0 ? capForm.tipo === "retiro" ? C.red : C.green : C.border }
+              })
             ),
-            React.createElement("input", { autoFocus: true, type: "number", value: capForm.newAmt, onChange: e => setCapForm(p => ({ ...p, newAmt: e.target.value })),
-              placeholder: "0.00", step: "any",
-              style: { ...st.input, fontSize: 24, fontWeight: 300, border: "none", borderBottom: `1px solid ${capForm.mode === "capital" ? (capForm.tipo === "retiro" ? C.red : C.green) : C.blue}`, borderRadius: 0, padding: "4px 0" }
-            })
+            React.createElement("div", null,
+              React.createElement("label", { style: st.label }, "Valor en cartera (Bs.)"),
+              React.createElement("input", {
+                type: "number", value: capForm.valorBOB,
+                onChange: e => setCapForm(p => ({ ...p, valorBOB: e.target.value })),
+                placeholder: "0.00", step: "any",
+                style: { ...st.input, fontSize: 18, fontWeight: 300, borderColor: capForm.valorBOB && parseFloat(capForm.valorBOB) > 0 ? C.blue : C.border }
+              })
+            )
           ),
-          // Fecha (solo en modo capital)
-          capForm.mode === "capital" && React.createElement("div", null,
+          // Fecha
+          modalAcc && React.createElement("div", null,
             React.createElement("label", { style: st.label }, "Fecha"),
             React.createElement("input", { type: "date", value: capForm.date || today(), onChange: e => setCapForm(p => ({ ...p, date: e.target.value })), style: { ...st.input, width: 160, colorScheme: C.bg === "#141414" ? "dark" : "light" } })
           ),
-          // Preview rendimiento
-          modalAcc && capForm.newAmt !== "" && !isNaN(modalNewAmt) && modalNewAmt > 0 && capForm.mode === "valor" && (() => {
+          // Preview rendimiento con nuevos valores
+          modalAcc && parseFloat(capForm.capitalBOB) > 0 && parseFloat(capForm.valorBOB) > 0 && (() => {
             const bob = S.currencies.find(c => c.id === "BOB");
             const txs = S.transactions.filter(t => t.accountId === modalAcc.id && t.note === "Actualización de capital");
-            const cap = txs.reduce((s, t) => { const amt = bob ? cvt(t.amount, modalAcc.currencyId, "BOB", S.currencies) : t.amount; return t.type === "income" ? s + amt : s - amt; }, 0);
-            const rend = modalNewAmt - cap;
-            const pct = cap > 0 ? (rend / cap * 100).toFixed(1) : null;
-            return React.createElement("div", { style: { fontSize: 12, padding: "10px 12px", borderRadius: 8, background: rend >= 0 ? C.green + "12" : C.red + "12", border: `1px solid ${rend >= 0 ? C.green : C.red}33`, color: rend >= 0 ? C.green : C.red, fontWeight: 500 } },
-              rend >= 0 ? "↗ Ganancia: +Bs. " : "↘ Pérdida: -Bs. ", Math.abs(rend).toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
-              pct ? "  (" + (rend >= 0 ? "+" : "") + pct + "%)" : ""
+            const capPrev = txs.reduce((s, t) => { const amt = bob ? cvt(t.amount, modalAcc.currencyId, "BOB", S.currencies) : t.amount; return t.type === "income" ? s + amt : s - amt; }, 0);
+            const capNuevo = capForm.tipo === "retiro" ? capPrev - parseFloat(capForm.capitalBOB) : capPrev + parseFloat(capForm.capitalBOB);
+            const valNuevo = parseFloat(capForm.valorBOB);
+            const rendNuevo = valNuevo - capNuevo;
+            const pct = capNuevo > 0 ? (rendNuevo / capNuevo * 100).toFixed(1) : null;
+            return React.createElement("div", { style: { padding: "10px 12px", borderRadius: 8, background: rendNuevo >= 0 ? C.green + "12" : C.red + "12", border: `1px solid ${rendNuevo >= 0 ? C.green : C.red}33`, fontSize: 12 } },
+              React.createElement("div", { style: { color: C.muted, fontSize: 10, textTransform: "uppercase", marginBottom: 4 } }, "Nuevo estado tras guardar"),
+              React.createElement("div", { style: { display: "flex", gap: 14 } },
+                React.createElement("div", null, React.createElement("span", { style: { color: C.muted } }, "Capital: "), React.createElement("span", { style: { fontWeight: 600 } }, "Bs. " + capNuevo.toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 }))),
+                React.createElement("div", null, React.createElement("span", { style: { color: C.muted } }, "Rendimiento: "), React.createElement("span", { style: { fontWeight: 600, color: rendNuevo >= 0 ? C.green : C.red } }, (rendNuevo >= 0 ? "+" : "") + "Bs. " + Math.abs(rendNuevo).toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 }), pct ? " (" + (rendNuevo >= 0 ? "+" : "") + pct + "%)" : ""))
+              )
             );
           })(),
-          React.createElement("div", { style: { display: "flex", gap: 8, marginTop: 4 } },
-            React.createElement("button", { onClick: () => setShowCapModal(false), style: { ...st.btn, flex: 1 } }, "Cancelar"),
-            React.createElement("button", { onClick: saveCapital, disabled: !capForm.accId || capForm.newAmt === "" || isNaN(modalNewAmt) || modalNewAmt <= 0, style: { ...st.btnPri, flex: 1, opacity: (!capForm.accId || !capForm.newAmt || modalNewAmt <= 0) ? 0.4 : 1, background: capForm.mode === "valor" ? C.blue : capForm.tipo === "retiro" ? C.red : C.green } }, "Guardar")
-          )
+          // Validación y botones
+          (() => {
+            const capOk = parseFloat(capForm.capitalBOB) > 0;
+            const valOk = parseFloat(capForm.valorBOB) > 0;
+            const canSave = modalAcc && capOk && valOk;
+            return React.createElement(React.Fragment, null,
+              !modalAcc ? null : (!capOk || !valOk) ? React.createElement("div", { style: { fontSize: 11, color: C.muted, textAlign: "center" } },
+                !capOk && !valOk ? "⚠ Ingresá el capital y el valor en cartera para guardar"
+                : !capOk ? "⚠ Falta el monto de capital"
+                : "⚠ Falta el valor en cartera"
+              ) : null,
+              React.createElement("div", { style: { display: "flex", gap: 8, marginTop: 4 } },
+                React.createElement("button", { onClick: () => setShowCapModal(false), style: { ...st.btn, flex: 1 } }, "Cancelar"),
+                React.createElement("button", { onClick: saveCapital, disabled: !canSave, style: { ...st.btnPri, flex: 1, opacity: canSave ? 1 : 0.4, background: capForm.tipo === "retiro" ? C.red : C.green } }, "Guardar")
+              )
+            );
+          })()
         )
       )
     ),
