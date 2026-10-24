@@ -2069,7 +2069,9 @@ function Inversiones({ S, dc, accBal, accBalIn, upd }) {
     if (isNaN(capitalAmt) || capitalAmt <= 0) return;
     if (isNaN(valorAmt) || valorAmt <= 0) return;
     if (capForm.tipo === "saldo") {
-      const diff = capitalAmt - invBal(S, acc);
+      // diff = diferencia entre el nuevo capital declarado y el capital ACTUAL de la cuenta
+      // (capital = saldo - rendimientos acumulados), para no duplicar rendimientos ya registrados
+      const diff = capitalAmt - invCapital(S, acc);
       upd(s => {
         if (Math.abs(diff) > 1e-12) s.transactions.push({ id: uid(), date: capForm.date || today(), type: diff > 0 ? "income" : "expense", accountId: capForm.accId, categoryId: "", subcategoryId: "", amount: Math.abs(diff), note: "Rendimiento" });
         const a = s.accounts.find(x => x.id === capForm.accId);
@@ -2170,7 +2172,7 @@ function Inversiones({ S, dc, accBal, accBalIn, upd }) {
               React.createElement("input", {
                 autoFocus: true, type: "number", value: capForm.capitalAcc,
                 onChange: e => setCapForm(p => ({ ...p, capitalAcc: e.target.value })),
-                placeholder: capForm.tipo === "saldo" && modalAcc ? String(invBal(S, modalAcc)) : "0.00", step: "any",
+                placeholder: capForm.tipo === "saldo" && modalAcc ? String(invCapital(S, modalAcc)) : "0.00", step: "any",
                 style: { ...st.input, fontSize: 18, fontWeight: 300, borderColor: capForm.capitalAcc && parseFloat(capForm.capitalAcc) > 0 ? capForm.tipo === "retiro" ? C.red : capForm.tipo === "saldo" ? C.blue : C.green : C.border }
               })
             ),
@@ -2195,7 +2197,7 @@ function Inversiones({ S, dc, accBal, accBalIn, upd }) {
             const txs = S.transactions.filter(t => t.accountId === modalAcc.id && t.note === "Actualización de capital");
             const capPrev = bob ? cvt(invCapital(S, modalAcc), modalAcc.currencyId, "BOB", S.currencies) : invCapital(S, modalAcc);
             const addBOB = capForm.tipo === "saldo" ? 0 : (bob ? cvt(parseFloat(capForm.capitalAcc), modalAcc.currencyId, "BOB", S.currencies) : parseFloat(capForm.capitalAcc)); const capNuevo = capForm.tipo === "retiro" ? capPrev - addBOB : capPrev + addBOB;
-            const diffNat = capForm.tipo === "saldo" ? parseFloat(capForm.capitalAcc) - invBal(S, modalAcc) : null;
+            const diffNat = capForm.tipo === "saldo" ? parseFloat(capForm.capitalAcc) - invCapital(S, modalAcc) : null;
             const valNuevo = parseFloat(capForm.valorBOB);
             const rendNuevo = valNuevo - capNuevo;
             const pct = capNuevo > 0 ? (rendNuevo / capNuevo * 100).toFixed(1) : null;
@@ -2230,7 +2232,7 @@ function Inversiones({ S, dc, accBal, accBalIn, upd }) {
     ),
     React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between" } },
       React.createElement("span", { style: { fontSize: 13, color: C.muted } }, selAcc ? selAcc.name : "Todas las inversiones"),
-      React.createElement("button", { onClick: () => { setCapForm({ accId: selAccId || (invAccs[0]?.id || ""), capitalAcc: "", valorBOB: "", tipo: "saldo", date: today() }); setShowCapModal(true); }, style: { width: 38, height: 38, borderRadius: "50%", border: "none", background: "#F0B90B", color: "#1a1a1a", fontSize: 22, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 2px 8px rgba(0,0,0,0.18)" } }, "+")
+      React.createElement("button", { onClick: () => { setCapForm({ accId: selAccId || "", capitalAcc: "", valorBOB: "", tipo: "saldo", date: today() }); setShowCapModal(true); }, style: { width: 38, height: 38, borderRadius: "50%", border: "none", background: "#F0B90B", color: "#1a1a1a", fontSize: 22, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 2px 8px rgba(0,0,0,0.18)" } }, "+")
     ),
     React.createElement("div", { style: { ...st.card, padding: "12px 14px" } },
       React.createElement("div", { style: { fontSize: 11, color: C.muted, textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 10 } }, "Cuentas de inversión"),
