@@ -1989,11 +1989,19 @@ function InvStats({ S, dc, accBal, accBalIn, accs, label, color, upd }) {
 
   const capNative = accs.length === 1 ? invCapital(S, accs[0]) : null;
   const capNativeTxt = capNative !== null ? (capNative < 0 ? "-" : "") + fmt(Math.abs(capNative), accs[0].currencyId, S.currencies) + " " + accs[0].currencyId : null;
+
+  // Variación cambiaria: solo aplica si hay 1 cuenta y su moneda NO es BOB
+  // = rendimiento total en Bs − (rendimiento acumulado en moneda nativa convertido a BOB)
+  const isForeignCcy = accs.length === 1 && accs[0].currencyId !== "BOB" && bob;
+  const rendNativeBOB = isForeignCcy ? cvt(invRend(S, accs[0]), accs[0].currencyId, "BOB", S.currencies) : null;
+  const varCambiaria = isForeignCcy ? rendBOB - rendNativeBOB : null;
+
   const statCards = [
     { l: "Valor en cartera", v: toDisplay(valorBOB), raw: valorBOB, c: color || C.blue },
     { l: "Capital invertido", v: toDisplay(capitalBOB), raw: capitalBOB, c: C.muted, native: capNativeTxt },
     { l: "Rendimiento neto", v: toDisplay(rendBOB), raw: rendBOB, c: rendBOB >= 0 ? C.green : C.red, sub: accs.length === 1 ? (invRend(S, accs[0]) >= 0 ? "+" : "-") + fmt(Math.abs(invRend(S, accs[0])), accs[0].currencyId, S.currencies) + " " + accs[0].currencyId + " acumulado" : null },
-    rendPct !== null && { l: "Retorno %", v: rendPct, c: rendBOB >= 0 ? C.green : C.red, isPct: true }
+    rendPct !== null && { l: "Retorno %", v: rendPct, c: rendBOB >= 0 ? C.green : C.red, isPct: true },
+    varCambiaria !== null && { l: "Variación cambiaria", v: toDisplay(varCambiaria), raw: varCambiaria, c: varCambiaria >= 0 ? C.green : C.red, sub: "Bs vs " + accs[0].currencyId }
   ].filter(Boolean);
 
   return React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 14 } },
@@ -2193,19 +2201,45 @@ function Inversiones({ S, dc, accBal, accBalIn, upd }) {
           // Preview rendimiento con nuevos valores
           modalAcc && parseFloat(capForm.capitalAcc) > 0 && parseFloat(capForm.valorBOB) > 0 && (() => {
             const bob = S.currencies.find(c => c.id === "BOB");
-            const txs = S.transactions.filter(t => t.accountId === modalAcc.id && t.note === "Actualización de capital");
-            const capPrev = bob ? cvt(invCapital(S, modalAcc), modalAcc.currencyId, "BOB", S.currencies) : invCapital(S, modalAcc);
-            const addBOB = capForm.tipo === "saldo" ? 0 : (bob ? cvt(parseFloat(capForm.capitalAcc), modalAcc.currencyId, "BOB", S.currencies) : parseFloat(capForm.capitalAcc)); const capNuevo = capForm.tipo === "retiro" ? capPrev - addBOB : capPrev + addBOB;
-            const diffNat = capForm.tipo === "saldo" ? parseFloat(capForm.capitalAcc) - invBal(S, modalAcc) : null;
+            const isForeign = modalAcc.currencyId !== "BOB" && bob;
+            const balPrevNat = invBal(S, modalAcc); // saldo previo en moneda nativa
+            const valPrevBOB = modalAcc.valorBOB !== undefined ? modalAcc.valorBOB : (bob ? cvt(balPrevNat, modalAcc.currencyId, "BOB", S.currencies) : balPrevNat);
+            const capPrevBOB = bob ? cvt(balPrevNat, modalAcc.currencyId, "BOB", S.currencies) : balPrevNat;
+            const newCapAmt = parseFloat(capForm.capitalAcc);
+            const addBOB = bob ? cvt(newCapAmt, modalAcc.currencyId, "BOB", S.currencies) : newCapAmt;
+            const capNuevoBOB = capForm.tipo === "saldo" ? addBOB : capForm.tipo === "retiro" ? capPrevBOB - addBOB : capPrevBOB + addBOB;
+            // diff en moneda nativa (lo que se registrará como transacción)
+            const diffNat = capForm.tipo === "saldo" ? newCapAmt - balPrevNat : null;
             const valNuevo = parseFloat(capForm.valorBOB);
-            const rendNuevo = valNuevo - capNuevo;
-            const pct = capNuevo > 0 ? (rendNuevo / capNuevo * 100).toFixed(1) : null;
-            return React.createElement("div", { style: { padding: "10px 12px", borderRadius: 8, background: rendNuevo >= 0 ? C.green + "12" : C.red + "12", border: `1px solid ${rendNuevo >= 0 ? C.green : C.red}33`, fontSize: 12 } },
-              React.createElement("div", { style: { color: C.muted, fontSize: 10, textTransform: "uppercase", marginBottom: 4 } }, "Nuevo estado tras guardar"),
-              diffNat !== null && React.createElement("div", { style: { marginBottom: 6, fontWeight: 600, color: diffNat >= 0 ? C.green : C.red } }, "Rendimiento registrado: " + (diffNat >= 0 ? "+" : "-") + fmt(Math.abs(diffNat), modalAcc.currencyId, S.currencies) + " " + modalAcc.currencyId),
-              React.createElement("div", { style: { display: "flex", gap: 14 } },
-                React.createElement("div", null, React.createElement("span", { style: { color: C.muted } }, "Capital ≈ "), React.createElement("span", { style: { fontWeight: 600 } }, "Bs. " + capNuevo.toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 }))),
-                React.createElement("div", null, React.createElement("span", { style: { color: C.muted } }, "Rendimiento: "), React.createElement("span", { style: { fontWeight: 600, color: rendNuevo >= 0 ? C.green : C.red } }, (rendNuevo >= 0 ? "+" : "") + "Bs. " + Math.abs(rendNuevo).toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 }), pct ? " (" + (rendNuevo >= 0 ? "+" : "") + pct + "%)" : ""))
+            const rendNuevo = valNuevo - capNuevoBOB;
+            const pct = capNuevoBOB > 0 ? (rendNuevo / capNuevoBOB * 100).toFixed(1) : null;
+            // Variación de valor en Bs respecto al anterior
+            const varBOB = valNuevo - valPrevBOB;
+            // Variación cambiaria = cambio en Bs que no se explica por el ajuste de saldo
+            const diffNatBOB = diffNat !== null && bob ? cvt(Math.abs(diffNat), modalAcc.currencyId, "BOB", S.currencies) : null;
+            const varCambio = isForeign && diffNat !== null ? varBOB - (diffNat < 0 ? -diffNatBOB : diffNatBOB) : null;
+            const borderColor = rendNuevo >= 0 ? C.green : C.red;
+            return React.createElement("div", { style: { padding: "10px 12px", borderRadius: 8, background: borderColor + "12", border: `1px solid ${borderColor}33`, fontSize: 12 } },
+              React.createElement("div", { style: { color: C.muted, fontSize: 10, textTransform: "uppercase", marginBottom: 6 } }, "Nuevo estado tras guardar"),
+              // Fila 1: ajuste de saldo en moneda nativa + cambio de valor en Bs
+              React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 4 } },
+                diffNat !== null && React.createElement("div", { style: { flex: 1, minWidth: 120 } },
+                  React.createElement("div", { style: { color: C.muted, fontSize: 10 } }, "Ajuste de saldo (" + modalAcc.currencyId + ")"),
+                  React.createElement("div", { style: { fontWeight: 600, color: diffNat >= 0 ? C.green : C.red } }, (diffNat >= 0 ? "+" : "") + fmt(Math.abs(diffNat), modalAcc.currencyId, S.currencies) + " " + modalAcc.currencyId)
+                ),
+                React.createElement("div", { style: { flex: 1, minWidth: 120 } },
+                  React.createElement("div", { style: { color: C.muted, fontSize: 10 } }, "Cambio valor en cartera (Bs)"),
+                  React.createElement("div", { style: { fontWeight: 600, color: varBOB >= 0 ? C.green : C.red } }, (varBOB >= 0 ? "+" : "") + "Bs. " + varBOB.toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 }))
+                ),
+                varCambio !== null && React.createElement("div", { style: { flex: 1, minWidth: 120 } },
+                  React.createElement("div", { style: { color: C.muted, fontSize: 10 } }, "Variación cambiaria (Bs)"),
+                  React.createElement("div", { style: { fontWeight: 600, color: varCambio >= 0 ? C.green : C.red } }, (varCambio >= 0 ? "+" : "") + "Bs. " + Math.abs(varCambio).toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 }))
+                )
+              ),
+              // Fila 2: estado nuevo
+              React.createElement("div", { style: { display: "flex", gap: 14, borderTop: `1px solid ${borderColor}22`, paddingTop: 6, marginTop: 2 } },
+                React.createElement("div", null, React.createElement("span", { style: { color: C.muted } }, "Capital ≈ "), React.createElement("span", { style: { fontWeight: 600 } }, "Bs. " + capNuevoBOB.toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 }))),
+                React.createElement("div", null, React.createElement("span", { style: { color: C.muted } }, "Rend. neto: "), React.createElement("span", { style: { fontWeight: 600, color: rendNuevo >= 0 ? C.green : C.red } }, (rendNuevo >= 0 ? "+" : "") + "Bs. " + Math.abs(rendNuevo).toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 }), pct ? " (" + (rendNuevo >= 0 ? "+" : "") + pct + "%)" : ""))
               )
             );
           })(),
